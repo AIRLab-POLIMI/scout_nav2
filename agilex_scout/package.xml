@@ -1,0 +1,33 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+	<name>agilex_scout</name>
+	<version>0.0.0</version>
+	<description>This package contains the URDF and XACRO macros for the definition of the configuration files
+		for the AgileX Scout robot. This package supports visualization and control in Gazebo
+	</description>
+
+	<maintainer email="simone.giampa@mail.polimi.it">Simone Giampà</maintainer>
+	<license>AIRLAB</license>
+	<url type="website">polimi.it</url>
+	<url type="repository">https://github.com/SimonGiampy/ros2-igus-rebel</url>
+	<author email="simone.giampa@mail.polimi.it">Simone Giampà</author>
+
+	<buildtool_depend>ament_cmake</buildtool_depend>
+	<exec_depend>rviz2</exec_depend>
+	<exec_depend>urdf</exec_depend>
+	<exec_depend>xacro</exec_depend>
+	<exec_depend>joint_state_publisher_gui</exec_depend>
+	<depend>pluginlib</depend>
+	<depend>ign</depend>
+
+	<test_depend>ament_lint_auto</test_depend>
+	<test_depend>ament_lint_common</test_depend>
+	<test_depend>ament_cmake_gtest</test_depend>
+
+	<!-- The export tag contains other, unspecified, tags -->
+	<export>
+		<!-- Other tools can request additional information be placed here -->
+		<build_type>ament_cmake</build_type>
+	</export>
+</package>
