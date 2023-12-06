@@ -19,7 +19,7 @@ def generate_launch_description():
 
     slam_arg = DeclareLaunchArgument(
         name="slam",
-        default_value="false",
+        default_value="true",
         description="Launch SLAM or launch localization and navigation",
         choices=["true", "false"],
     )
@@ -32,7 +32,7 @@ def generate_launch_description():
     )
 
     # full configuration parameters
-    nav2_params_file = os.path.join(scout_nav2_dir, "params", "nav2_params.yaml")
+    nav2_params_file = os.path.join(scout_nav2_dir, "params", "nav2_params_scout.yaml")
 
     # if slam is enabled --> slam + localization + navigation
     nav2_slam_launch = IncludeLaunchDescription(
