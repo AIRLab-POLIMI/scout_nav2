@@ -22,17 +22,26 @@
 	<xacro:arg name="odometry_source" default="encoders" />
 	<xacro:property name="odometry_source" value="$(arg odometry_source)"/>
 
-	<link name="base_footprint">
+	<!-- virtual joints to link to ground and to odom -->
+	<link name="base_link">
 		<visual>
-			<origin xyz="0 0 0" rpy="0 0 0" />
+			<origin xyz="0 0 ${wheel_radius - wheel_vertical_offset}" rpy="0 0 0" />
 		</visual>
 	</link>
 
-    <joint name="base_footprint_to_base_link" type="fixed">
-        <origin xyz="0 0 ${wheel_radius - wheel_vertical_offset}" rpy="0 0 0" />
-        <parent link="base_footprint" />
-        <child link="mobile_robot_base_link" />
+    <joint name="base_link_to_base_footprint" type="fixed">
+        <origin xyz="0 0 ${- wheel_radius + wheel_vertical_offset}" rpy="0 0 0" />
+        <parent link="base_link" />
+        <child link="base_footprint" />
     </joint>
+
+	<link name="base_footprint"/>
+
+	<joint name="base_footprint_to_mobile_robot" type="fixed">
+		<origin xyz="0 0 ${wheel_radius - wheel_vertical_offset}" rpy="0 0 0" />
+		<parent link="base_footprint" />
+		<child link="mobile_robot_base_link" />
+	</joint>
 
 	<!-- Base link -->
 	<link name="mobile_robot_base_link">

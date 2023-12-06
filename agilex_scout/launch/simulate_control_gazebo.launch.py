@@ -9,13 +9,14 @@ from launch.actions import DeclareLaunchArgument
 from launch.conditions import IfCondition
 from launch_ros.actions import Node
 from launch_ros.parameter_descriptions import ParameterValue
-from launch.actions import ExecuteProcess, Shutdown, TimerAction
 from launch.substitutions import (
 	Command,
 	FindExecutable,
 	LaunchConfiguration,
 	PythonExpression,
 )
+from launch.actions import IncludeLaunchDescription
+from launch.launch_description_sources import PythonLaunchDescriptionSource
 
 
 def generate_launch_description():
@@ -46,42 +47,17 @@ def generate_launch_description():
 		choices=["true", "false"],
 	)
 
-	# use world file stored in aws_robomaker_small_warehouse_world package
-	world_sdf_file = os.path.join(
-		get_package_share_directory("aws_robomaker_small_warehouse_world"),
-		"worlds",
-		"no_roof_small_warehouse",
-		"no_roof_small_warehouse.world",
+	# include launch file with gazebo world
+	aws_small_warehouse_dir = get_package_share_directory(
+		"aws_robomaker_small_warehouse_world"
 	)
-
-	# Ignition Gazebo 6 environment variables (local to the running instance)
-	env = {  # IGN GAZEBO FORTRESS env variables
-		"IGN_GAZEBO_SYSTEM_PLUGIN_PATH": ":".join(
+	warehouse_world_launch = IncludeLaunchDescription(
+		PythonLaunchDescriptionSource(
 			[
-				environ.get("IGN_GAZEBO_SYSTEM_PLUGIN_PATH", default=""),
-				environ.get("LD_LIBRARY_PATH", default=""),
+				aws_small_warehouse_dir,
+				"/launch/no_roof_small_warehouse.launch.py",
 			]
-		),
-	}
-
-	# Gazebo GUI configuration file
-	gazebo_config_gui_file = os.path.join(
-		get_package_share_directory("aws_robomaker_small_warehouse_world"),
-		"gui",
-		"gazebo_gui.config",
-	)
-
-	# Setup to launch the simulator and Gazebo world
-	gazebo_sim_process = ExecuteProcess(
-		cmd=[
-			"ign gazebo",
-			"--verbose 1 -r --gui-config " + gazebo_config_gui_file,
-			world_sdf_file,
-		],
-		output="log",
-		additional_env=env,
-		shell=True,
-		#on_exit=Shutdown(),
+		)
 	)
 
 	# bridge configuration file
@@ -150,7 +126,7 @@ def generate_launch_description():
 			"-y",
 			"0",
 			"-z",
-			"0.25",
+			"0.2346",
 			"-R",
 			"0",
 			"-P",
@@ -215,7 +191,7 @@ def generate_launch_description():
 			rviz_arg,
 			static_tf,
 			robot_state_publisher_node,
-			gazebo_sim_process,
+			warehouse_world_launch,
 			spawn_robot_urdf_node,
 			bridge,
 			rviz2_node,

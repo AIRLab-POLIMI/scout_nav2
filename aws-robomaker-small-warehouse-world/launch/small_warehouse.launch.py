@@ -18,66 +18,65 @@ from ament_index_python.packages import get_package_share_directory
 
 
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument, ExecuteProcess, IncludeLaunchDescription
-from launch.conditions import IfCondition
-from launch.launch_description_sources import PythonLaunchDescriptionSource
+from launch.actions import DeclareLaunchArgument, ExecuteProcess
 from launch.substitutions import LaunchConfiguration, PythonExpression
 from launch_ros.actions import Node
 from launch.actions import ExecuteProcess, Shutdown, TimerAction
 
 
 def generate_launch_description():
-	# Get the launch directory
-	aws_small_warehouse_dir = get_package_share_directory('aws_robomaker_small_warehouse_world')
-	
-	# Launch configuration variables specific to simulation
-	world = LaunchConfiguration('world')
+    # Get the launch directory
+    aws_small_warehouse_dir = get_package_share_directory(
+        "aws_robomaker_small_warehouse_world"
+    )
 
-	use_sim_time_arg = DeclareLaunchArgument(
-		name='use_sim_time',
-		default_value='True',
-		description='Use simulation (Gazebo) clock if true')
-	
-	world_sdf_file = os.path.join(aws_small_warehouse_dir, 'worlds', 'small_warehouse', 'small_warehouse.world')
+    # Launch configuration variables specific to simulation
+    world = LaunchConfiguration("world")
 
-	world_file_arg = DeclareLaunchArgument(
-		name='world',
-		default_value=world_sdf_file,
-		description='Full path to world model file to load')
-	
+    use_sim_time_arg = DeclareLaunchArgument(
+        name="use_sim_time",
+        default_value="True",
+        description="Use simulation (Gazebo) clock if true",
+    )
 
-   # Gazebo GUI configuration file
-	gazebo_config_gui_file = os.path.join(
-		aws_small_warehouse_dir,
-		"gui",
-		"gazebo_gui.config",
-	)
+    world_sdf_file = os.path.join(
+        aws_small_warehouse_dir, "worlds", "small_warehouse", "small_warehouse.world"
+    )
 
-	# Ignition Gazebo 6 environment variables (local to the running instance)
-	env = {  # IGN GAZEBO FORTRESS env variables
-		"IGN_GAZEBO_SYSTEM_PLUGIN_PATH": ":".join(
-			[
-				environ.get("IGN_GAZEBO_SYSTEM_PLUGIN_PATH", default=""),
-				environ.get("LD_LIBRARY_PATH", default=""),
-			]
-		),
-	}
+    world_file_arg = DeclareLaunchArgument(
+        name="world",
+        default_value=world_sdf_file,
+        description="Full path to world model file to load",
+    )
 
-	# Setup to launch the simulator and Gazebo world
-	gazebo_sim_process = ExecuteProcess(
-		cmd=[
-			"ign gazebo",
-			"--verbose 1 -r --gui-config " + gazebo_config_gui_file,
-			world,
-		],
-		output="log",
-		additional_env=env,
-		shell=True,
-		on_exit=Shutdown(),
-	)
+    # Gazebo GUI configuration file
+    gazebo_config_gui_file = os.path.join(
+        aws_small_warehouse_dir,
+        "gui",
+        "gazebo_gui.config",
+    )
 
-	return LaunchDescription([
-		use_sim_time_arg,
-		world_file_arg,
-		gazebo_sim_process
-	])
+    # Ignition Gazebo 6 environment variables (local to the running instance)
+    env = {  # IGN GAZEBO FORTRESS env variables
+        "IGN_GAZEBO_SYSTEM_PLUGIN_PATH": ":".join(
+            [
+                environ.get("IGN_GAZEBO_SYSTEM_PLUGIN_PATH", default=""),
+                environ.get("LD_LIBRARY_PATH", default=""),
+            ]
+        ),
+    }
+
+    # Setup to launch the simulator and Gazebo world
+    gazebo_sim_process = ExecuteProcess(
+        cmd=[
+            "ign gazebo",
+            "--verbose 1 -r --gui-config " + gazebo_config_gui_file,
+            world,
+        ],
+        output="log",
+        additional_env=env,
+        shell=True,
+        on_exit=Shutdown(),
+    )
+
+    return LaunchDescription([use_sim_time_arg, world_file_arg, gazebo_sim_process])
