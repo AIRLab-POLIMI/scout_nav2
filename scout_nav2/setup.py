@@ -26,7 +26,8 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'example_navigate_to_pose = siri_nav2.example_navigate_to_pose:main'
+            "example_navigate_to_pose = scout_nav2.example_navigate_to_pose:main",
+			"park_robot = scout_nav2.park_robot:main",
         ],
     },
 )

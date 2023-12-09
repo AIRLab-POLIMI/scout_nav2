@@ -42,11 +42,11 @@ class PyCostmap2D:
             occupancy_map (OccupancyGrid): 2D OccupancyGrid Map
 
         """
-        self.size_x = occupancy_map.info.width
-        self.size_y = occupancy_map.info.height
-        self.resolution = occupancy_map.info.resolution
-        self.origin_x = occupancy_map.info.origin.position.x
-        self.origin_y = occupancy_map.info.origin.position.y
+        self.size_x = occupancy_map.metadata.size_x
+        self.size_y = occupancy_map.metadata.size_y
+        self.resolution = occupancy_map.metadata.resolution
+        self.origin_x = occupancy_map.metadata.origin.position.x
+        self.origin_y = occupancy_map.metadata.origin.position.y
         self.global_frame_id = occupancy_map.header.frame_id
         self.costmap_timestamp = occupancy_map.header.stamp
         # Extract costmap
