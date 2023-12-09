@@ -66,13 +66,27 @@ ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSI
 			</collision>
 		</link>
 
-		<joint name="${wheel_prefix}_wheel" type="continuous">
-			<parent link="mobile_robot_base_link" />
-			<child link="${wheel_prefix}_wheel_link" />
-			<origin xyz="${x} ${y} ${z}" rpy="${phi} 0.0 0.0" />
-			<axis xyz="0 1 0" rpy="0 0 0" />
-			<dynamics damping="0.0" friction="20" />
-		</joint>
+		<!-- if gazebo is loaded, simulate the robot wheel rotations and broadcast the join states-->
+		<xacro:if value="$(arg load_gazebo)">
+			<joint name="${wheel_prefix}_wheel" type="continuous">
+				<parent link="mobile_robot_base_link" />
+				<child link="${wheel_prefix}_wheel_link" />
+				<origin xyz="${x} ${y} ${z}" rpy="${phi} 0.0 0.0" />
+				<axis xyz="0 1 0" rpy="0 0 0" />
+				<dynamics damping="0.0" friction="20" />
+			</joint>
+		</xacro:if>
+
+		<!-- if real robot is loaded, fixed wheels are used because no joint broadcasters are available -->
+		<xacro:unless value="$(arg load_gazebo)">
+			<joint name="${wheel_prefix}_wheel" type="fixed">
+				<parent link="mobile_robot_base_link" />
+				<child link="${wheel_prefix}_wheel_link" />
+				<origin xyz="${x} ${y} ${z}" rpy="${phi} 0.0 0.0" />
+				<axis xyz="0 1 0" rpy="0 0 0" />
+			</joint>
+		</xacro:unless>
+		
 	</xacro:macro>
 
 </robot>

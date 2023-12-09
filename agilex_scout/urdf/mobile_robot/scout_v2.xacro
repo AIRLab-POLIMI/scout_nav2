@@ -20,29 +20,25 @@
 
 	<!-- odometry source: world ground truth or wheels encoders -->
 	<xacro:arg name="odometry_source" default="encoders" />
-	<xacro:property name="odometry_source" value="$(arg odometry_source)"/>
+	<xacro:property name="odometry_source" value="$(arg odometry_source)" />
 
-    <!-- load gazebo xacro -->
-    <xacro:arg name="load_gazebo" default="true" />
+	<!-- load gazebo xacro -->
+	<xacro:arg name="load_gazebo" default="true" />
 
 	<!-- virtual joints to link to ground and to odom -->
-	<link name="base_link">
-		<visual>
-			<origin xyz="0 0 ${wheel_radius - wheel_vertical_offset}" rpy="0 0 0" />
-		</visual>
-	</link>
+	<link name="base_footprint" /> 
 
-    <joint name="base_link_to_base_footprint" type="fixed">
-        <origin xyz="0 0 ${- wheel_radius + wheel_vertical_offset}" rpy="0 0 0" />
-        <parent link="base_link" />
-        <child link="base_footprint" />
-    </joint>
-
-	<link name="base_footprint"/>
-
-	<joint name="base_footprint_to_mobile_robot" type="fixed">
+	<joint name="base_footprint_to_base_link" type="fixed">
 		<origin xyz="0 0 ${wheel_radius - wheel_vertical_offset}" rpy="0 0 0" />
 		<parent link="base_footprint" />
+		<child link="base_link" />
+	</joint>
+
+	<link name="base_link" />
+
+	<joint name="base_link_to_mobile_robot" type="fixed">
+		<origin xyz="0 0 0" rpy="0 0 0" />
+		<parent link="base_link" />
 		<child link="mobile_robot_base_link" />
 	</joint>
 
@@ -51,7 +47,8 @@
 		<visual>
 			<origin xyz="0 0 0" rpy="0 0 0" />
 			<geometry>
-				<mesh filename="file://$(find agilex_scout)/meshes/mobile_robot/mobile_robot_base_link.dae" />
+				<mesh
+					filename="file://$(find agilex_scout)/meshes/mobile_robot/mobile_robot_base_link.dae" />
 			</geometry>
 		</visual>
 		<collision>
@@ -90,15 +87,17 @@
 	<xacro:include filename="$(find agilex_scout)/urdf/mobile_robot/scout_wheel_type2.xacro" />
 	<!-- wheel labeled from 0 to 3, conter-clockwise, starting from front right wheel -->
 	<!-- motor 1 and 2 (left side) are mechanically installed in a reversed direction -->
-	<xacro:scout_wheel_type1 wheel_prefix="front_right" x="${wheelbase/2}" y="${-track/2}" z="${wheel_vertical_offset}"
-		phi="0" />
+	<xacro:scout_wheel_type1 wheel_prefix="front_right" x="${wheelbase/2}" y="${-track/2}"
+		z="${wheel_vertical_offset}" phi="0" />
 
-	<xacro:scout_wheel_type2 wheel_prefix="front_left" x="${wheelbase/2}" y="${track/2}" z="${wheel_vertical_offset}" phi="0" />
+	<xacro:scout_wheel_type2 wheel_prefix="front_left" x="${wheelbase/2}" y="${track/2}"
+		z="${wheel_vertical_offset}" phi="0" />
 
-	<xacro:scout_wheel_type1 wheel_prefix="rear_left" x="${-wheelbase/2}" y="${track/2}" z="${wheel_vertical_offset}" phi="0" />
+	<xacro:scout_wheel_type1 wheel_prefix="rear_left" x="${-wheelbase/2}" y="${track/2}"
+		z="${wheel_vertical_offset}" phi="0" />
 
-	<xacro:scout_wheel_type2 wheel_prefix="rear_right" x="${-wheelbase/2}" y="${-track/2}" z="${wheel_vertical_offset}"
-		phi="0" />
+	<xacro:scout_wheel_type2 wheel_prefix="rear_right" x="${-wheelbase/2}" y="${-track/2}"
+		z="${wheel_vertical_offset}" phi="0" />
 
 
 	<link name="front_mount" />
@@ -118,8 +117,8 @@
 	</joint>
 
 	<!-- Gazebo definitions  -->
-    <xacro:if value="$(arg load_gazebo)">
-	    <xacro:include filename="$(find agilex_scout)/urdf/mobile_robot/scout_v2.gazebo" />
-    </xacro:if>
-    
+	<xacro:if value="$(arg load_gazebo)">
+		<xacro:include filename="$(find agilex_scout)/urdf/mobile_robot/scout_v2.gazebo" />
+	</xacro:if>
+
 </robot>
