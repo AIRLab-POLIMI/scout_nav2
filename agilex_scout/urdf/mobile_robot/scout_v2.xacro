@@ -70,7 +70,7 @@
 			<mass value="50" />
 			<!-- <mass value="50" /> -->
 			<!-- <origin xyz="-0.00065 -0.085 0.062" />
-            <inertia ixx="0.6022" ixy="-0.02364" ixz="-0.1197" iyy="1.7386" iyz="-0.001544" izz="2.0296" /> -->
+			<inertia ixx="0.6022" ixy="-0.02364" ixz="-0.1197" iyy="1.7386" iyz="-0.001544" izz="2.0296" /> -->
 			<origin xyz="0.0 0.0 0.0" />
 			<inertia ixx="2.288641" ixy="0" ixz="0" iyy="5.103976" iyz="0" izz="3.431465" />
 		</inertial>

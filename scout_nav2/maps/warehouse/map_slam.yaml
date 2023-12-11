@@ -1,4 +1,4 @@
-image: map_slam_cleaned.pgm
+image: map_slam.pgm
 mode: trinary
 resolution: 0.05
 origin: [-14.1, -14.9, 0]

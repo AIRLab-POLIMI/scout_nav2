@@ -95,6 +95,7 @@ def generate_launch_description():
 			scout_description_file,
 			" odometry_source:=",
 			LaunchConfiguration("odometry_source"),
+			" load_gazebo:=true"
 		]
 	)
 	scout_description = {

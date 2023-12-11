@@ -57,7 +57,7 @@ Visualization Manager:
         Durability Policy: Volatile
         History Policy: Keep Last
         Reliability Policy: Reliable
-        Value: /scout_description
+        Value: /robot_description
       Enabled: true
       Links:
         All Links Enabled: true
@@ -127,7 +127,11 @@ Visualization Manager:
           Value: true
         base_link:
           Value: true
+        front_left_wheel_link:
+          Value: true
         front_mount:
+          Value: true
+        front_right_wheel_link:
           Value: true
         inertial_link:
           Value: true
@@ -141,7 +145,11 @@ Visualization Manager:
           Value: true
         os_sensor:
           Value: true
+        rear_left_wheel_link:
+          Value: true
         rear_mount:
+          Value: true
+        rear_right_wheel_link:
           Value: true
       Marker Scale: 1
       Name: TF
@@ -150,20 +158,28 @@ Visualization Manager:
       Show Names: false
       Tree:
         odom:
-          base_link:
-            base_footprint:
+          base_footprint:
+            base_link:
               mobile_robot_base_link:
+                front_left_wheel_link:
+                  {}
                 front_mount:
+                  {}
+                front_right_wheel_link:
                   {}
                 inertial_link:
                   {}
+                rear_left_wheel_link:
+                  {}
                 rear_mount:
                   {}
-            os_sensor:
-              os_imu:
-                {}
-              os_lidar:
-                {}
+                rear_right_wheel_link:
+                  {}
+              os_sensor:
+                os_imu:
+                  {}
+                os_lidar:
+                  {}
       Update Interval: 0
       Value: true
     - Alpha: 1
@@ -251,10 +267,10 @@ Visualization Manager:
       Color: 255; 255; 255
       Color Transformer: Intensity
       Decay Time: 0
-      Enabled: false
+      Enabled: true
       Invert Rainbow: false
       Max Color: 255; 255; 255
-      Max Intensity: 3340
+      Max Intensity: 3474
       Min Color: 0; 0; 0
       Min Intensity: 1
       Name: PointCloud2
@@ -272,7 +288,7 @@ Visualization Manager:
         Value: /ouster/points
       Use Fixed Frame: true
       Use rainbow: true
-      Value: false
+      Value: true
     - Alpha: 1
       Class: rviz_default_plugins/RobotModel
       Collision Enabled: false
@@ -350,7 +366,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz_default_plugins/Orbit
-      Distance: 8.07559585571289
+      Distance: 6.7566351890563965
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
@@ -365,10 +381,10 @@ Visualization Manager:
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.490398645401001
+      Pitch: 1.065398097038269
       Target Frame: <Fixed Frame>
       Value: Orbit (rviz)
-      Yaw: 3.655407190322876
+      Yaw: 4.505422115325928
     Saved: ~
 Window Geometry:
   Displays:

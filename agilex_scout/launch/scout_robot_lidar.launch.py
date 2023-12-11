@@ -1,4 +1,5 @@
 import os
+from math import pi
 
 from launch import LaunchDescription
 from launch.actions import IncludeLaunchDescription, DeclareLaunchArgument
@@ -29,7 +30,7 @@ def generate_launch_description():
 		name="use_sim_time",
 		default_value="false",
 		description="Use simulation (Gazebo) clock if true",
-		choices=["true", "false"],
+		choices=["false"],
 	)
 
 
@@ -44,7 +45,7 @@ def generate_launch_description():
 		launch_arguments={
 			"odom_topic_name": "/odometry",
 			"use_sim_time": use_sim_time,
-			"base_frame": "base_link",
+			"base_frame": "base_footprint",
 			"odom_frame": "odom"
 		}.items()
 	)
@@ -63,12 +64,14 @@ def generate_launch_description():
 			scout_description_file,
 			" load_gazebo:=",
 			LaunchConfiguration("load_gazebo"),
+			" odometry_source:=_" # not used
 		]
 	)
 	scout_description = {
 		"robot_description": ParameterValue(scout_description_content, value_type=str)
 	}
 
+	""" not needed because scout_base package does not publish the wheels joint states
 	scout_joint_state_publisher_node = Node(
 		package='joint_state_publisher',
 		executable='joint_state_publisher',
@@ -78,6 +81,7 @@ def generate_launch_description():
 		arguments=[scout_description_file],
 		remappings=[('/robot_description', '/scout_description')]
 	)
+	"""
 
 	scout_robot_state_publisher_node = Node(
 		package='robot_state_publisher',
@@ -86,8 +90,10 @@ def generate_launch_description():
 		output='screen',
 		parameters=[{"use_sim_time": use_sim_time}, scout_description],
 		arguments=[scout_description_file],
-		remappings=[('/robot_description', '/scout_description')]
+		#remappings=[('/robot_description', '/scout_description')]
 	)
+
+	
 
 	lidar_node = IncludeLaunchDescription(
         PythonLaunchDescriptionSource([
@@ -116,6 +122,7 @@ def generate_launch_description():
 	)
 	os1_description = {'robot_description': ParameterValue(os1_description_content, value_type=str)}
 
+	"""not needed because no joints are present
 	os1_joint_state_publisher_node = Node(
         package='joint_state_publisher',
         executable='joint_state_publisher',
@@ -125,6 +132,7 @@ def generate_launch_description():
         arguments=[os1_urdf],
         remappings=[('/robot_description', '/os1_description')]
     )
+	"""
 
 	os1_urdf_publisher_node = Node(
         package='robot_state_publisher',
@@ -144,6 +152,26 @@ def generate_launch_description():
 			"--yaw", "0.0", "--pitch", "0.0", "--roll", "0.0", 
 			"--frame-id", "base_link", "--child-frame-id", "os_sensor"
 		]
+	)
+	
+	pointcloud_to_laserscan_node = Node(
+		package='pointcloud_to_laserscan',
+		executable='pointcloud_to_laserscan_node',
+		name='pointcloud_to_laserscan_node',
+		remappings=[('cloud_in', "/ouster/points"),
+					('scan', "/ouster/scan")],
+		parameters=[{
+			'transform_tolerance': 0.05,
+			'min_height': 0.0,
+			'max_height': 1.5,
+			'angle_min': -pi,
+			'angle_max': pi,
+			'angle_increment': pi / 180.0,
+			'scan_time': 1/30, # 30Hz
+			'range_min': 1.0,
+			'range_max': 100.0,
+			'use_inf': True,
+		}],
 	)
 
 	# rviz2 node
@@ -199,13 +227,12 @@ def generate_launch_description():
 		load_gazebo_arg,
 		use_sim_time_arg,
 		scout_base_node,
-		scout_joint_state_publisher_node,
 		scout_robot_state_publisher_node,
-		os1_joint_state_publisher_node,
 		os1_urdf_publisher_node,
 		os1_tf_static,
 		lidar_node,
 		rviz2_node,
+		pointcloud_to_laserscan_node,
 
 		#imu_tf_node,
 		#imu_node

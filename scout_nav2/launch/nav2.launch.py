@@ -7,16 +7,16 @@ from launch.actions import IncludeLaunchDescription, DeclareLaunchArgument
 from launch.actions import OpaqueFunction
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch_ros.actions import Node
-from launch.substitutions import LaunchConfiguration
+from launch.substitutions import LaunchConfiguration, PythonExpression, TextSubstitution
 from launch.conditions import IfCondition, UnlessCondition
 
 
 def generate_launch_description():
 	slam_arg = DeclareLaunchArgument(
 		name="slam",
-		default_value="true",
+		default_value="True",
 		description="Launch SLAM or launch localization and navigation",
-		choices=["true", "false"],
+		choices=["True", "False"],
 	)
 
 	simulation_arg = DeclareLaunchArgument(
@@ -41,23 +41,24 @@ def launch_setup(context, *args, **kwargs):
 	nav2_launch_file = os.path.join(nav2_bringup_dir, "launch", "bringup_launch.py")
 
 	scout_nav2_dir = get_package_share_directory("scout_nav2")
-
-	# map file
-	map_yaml_file = os.path.join(
-		scout_nav2_dir,
-		"maps",
-		"map_slam.yaml",
-	)
+	
 
 	# full configuration parameters file
-	if LaunchConfiguration("simulation").perform(context):
+	# choose map to load depending on test environment
+	if LaunchConfiguration("simulation").perform(context) == "true":
 		params_file_name = "nav2_params.yaml"
-	else:
+		map_file = "warehouse/map_slam.yaml"
+	elif LaunchConfiguration("simulation").perform(context) == "false":
 		params_file_name = "nav2_params_scout.yaml"
+		map_file = "airlab/map_lidar3d.yaml"
+
+	# parameters file path
 	nav2_params_file = os.path.join(scout_nav2_dir, "params", params_file_name)
+	# map file path
+	map_yaml_file = os.path.join(scout_nav2_dir, "maps", map_file)
 
 	use_sim_time = (
-		"true" if LaunchConfiguration("simulation").perform(context) else "false"
+		"true" if LaunchConfiguration("simulation").perform(context) == "true" else "false"
 	)
 
 	# if slam is enabled --> slam + localization + navigation
@@ -66,10 +67,10 @@ def launch_setup(context, *args, **kwargs):
 		launch_arguments={
 			"use_sim_time": use_sim_time,
 			"params_file": nav2_params_file,  # full configuration parameters
-			"slam": "True",  # slam activated
-			"map": "",  # no map
+			"slam": LaunchConfiguration("slam"),  # slam activated
+			"map": "",  # no map,
 		}.items(),
-		condition=IfCondition(LaunchConfiguration("slam")),
+		condition=IfCondition(PythonExpression([LaunchConfiguration("slam"), " == True"])),
 	)
 
 	# if slam is disabled --> localization + navigation
@@ -78,10 +79,34 @@ def launch_setup(context, *args, **kwargs):
 		launch_arguments={
 			"use_sim_time": use_sim_time,
 			"params_file": nav2_params_file,  # full configuration parameters
-			"slam": "False",  # localization + navigation
+			"slam": LaunchConfiguration("slam"),  # localization + navigation
 			"map": map_yaml_file,  # map file
 		}.items(),
-		condition=UnlessCondition(LaunchConfiguration("slam")),
+		condition=IfCondition(PythonExpression([LaunchConfiguration("slam"), " == False"])),
+	)
+	
+    # static transform from world to map
+	static_tf = Node(
+		package="tf2_ros",
+		executable="static_transform_publisher",
+		arguments=[
+			"--x",
+			"0.0",
+			"--y",
+			"0.0",
+			"--z",
+			"0.0",
+			"--yaw",
+			"0.0",
+			"--pitch",
+			"0.0",
+			"--roll",
+			"0.0",
+			"--frame-id",
+			"world",
+			"--child-frame-id",
+			"map",
+		],
 	)
 
 	# launch rviz
@@ -94,4 +119,4 @@ def launch_setup(context, *args, **kwargs):
 		arguments=["-d", rviz_default_config_file],
 	)
 
-	return [nav2_slam_launch, nav2_amcl_nav_launch, rviz_node]
+	return [nav2_slam_launch, nav2_amcl_nav_launch, rviz_node, static_tf]
