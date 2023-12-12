@@ -5,21 +5,21 @@ amcl:
         alpha3: 0.2
         alpha4: 0.2
         alpha5: 0.2
-        base_frame_id: "base_footprint"
+        base_frame_id: base_footprint
         beam_skip_distance: 0.5
         beam_skip_error_threshold: 0.9
         beam_skip_threshold: 0.3
         do_beamskip: false
-        global_frame_id: "map"
+        global_frame_id: map
         lambda_short: 0.1
         laser_likelihood_max_dist: 2.0
         laser_max_range: 100.0
         laser_min_range: -1.0
         laser_model_type: "likelihood_field"
-        max_beams: 60
+        max_beams: 180
         max_particles: 2000
         min_particles: 500
-        odom_frame_id: "odom"
+        odom_frame_id: odom
         pf_err: 0.05
         pf_z: 0.99
         recovery_alpha_fast: 0.0
@@ -208,18 +208,13 @@ local_costmap:
             map_topic: /map
             rolling_window: true
             use_sim_time: True
-            width: 3
-            height: 3
+            width: 6
+            height: 6
             resolution: 0.05
-
-            #NOTE: removed robot radius and added footprint
-            #robot_radius: 0.22
             footprint: "[ [0.45, 0.35], [0.45, -0.35], [-0.45, -0.35], [-0.45, 0.35] ]"
             footprint_padding: 0.02
 
-            #NOTE: removed voxel layer and added obstacle layer
             plugins: ["static_layer", "inflation_layer", "obstacle_layer"]
-
             inflation_layer:
                 plugin: "nav2_costmap_2d::InflationLayer"
                 cost_scaling_factor: 3.0
@@ -244,7 +239,7 @@ local_costmap:
                     data_type: "LaserScan"
                     raytrace_max_range: 3.0
                     raytrace_min_range: 0.0
-                    obstacle_max_range: 2.5
+                    obstacle_max_range: 3.0
                     obstacle_min_range: 0.0
                     inf_is_valid: false
             always_send_full_costmap: True
@@ -257,35 +252,16 @@ global_costmap:
             global_frame: map
             robot_base_frame: mobile_robot_base_link
             map_topic: /map
-            rolling_window:
-                true
-
-                #NOTE: removed robot radius and added footprint
-            #robot_radius: 0.22
-            footprint: "[ [0.30, 0.25], [0.30, -0.25], [-0.30, -0.25], [-0.30, 0.25] ]"
-            footprint_padding: 0.03
-
+            rolling_window: true
+            footprint: "[ [0.45, 0.35], [0.45, -0.35], [-0.45, -0.35], [-0.45, 0.35] ]"
+            footprint_padding: 0.02
             resolution: 0.05
-            width: 10
-            height: 10
+            width: 15
+            height: 15
             track_unknown_space: true
             use_sim_time: True
-            plugins: ["obstacle_layer", "static_layer", "inflation_layer"]
-            obstacle_layer:
-                plugin: "nav2_costmap_2d::ObstacleLayer"
-                enabled: True
-                observation_sources: scan
-                scan:
-                    topic: /laser_scan # --> /scan
-                    max_obstacle_height: 2.0
-                    clearing: True
-                    marking: True
-                    data_type: "LaserScan"
-                    raytrace_max_range: 3.0
-                    raytrace_min_range: 0.0
-                    obstacle_max_range: 2.5
-                    obstacle_min_range: 0.0
-                    inf_is_valid: false
+
+            plugins: ["static_layer", "inflation_layer", "obstacle_layer"]
             static_layer:
                 plugin: "nav2_costmap_2d::StaticLayer"
                 map_subscribe_transient_local: True
@@ -297,6 +273,21 @@ global_costmap:
                 plugin: "nav2_costmap_2d::InflationLayer"
                 cost_scaling_factor: 3.0
                 inflation_radius: 0.55
+            obstacle_layer:
+                plugin: "nav2_costmap_2d::ObstacleLayer"
+                enabled: True
+                observation_sources: scan
+                scan:
+                    topic: /laser_scan
+                    max_obstacle_height: 2.0
+                    clearing: True
+                    marking: True
+                    data_type: "LaserScan"
+                    raytrace_max_range: 5.0
+                    raytrace_min_range: 0.0
+                    obstacle_max_range: 5.0
+                    obstacle_min_range: 0.0
+                    inf_is_valid: false
             always_send_full_costmap: True
 
 # The yaml_filename does not need to be specified since it going to be set by defaults in launch.
@@ -317,7 +308,7 @@ map_server:
     ros__parameters:
         topic_name: /map
         frame_id: map
-        yaml_filename: "~/siri/src/siri_nav2/maps/map.yaml"
+        #yaml_filename: "~/siri/src/siri_nav2/maps/map.yaml"
 
 planner_server:
     ros__parameters:
@@ -332,6 +323,9 @@ planner_server:
 smoother_server:
     ros__parameters:
         smoother_plugins: ["simple_smoother"]
+        robot_base_frame: mobile_robot_base_link
+        footprint_topic: “global_costmap/published_footprint”
+        costmap_topic: “global_costmap/costmap_raw”
         simple_smoother:
             plugin: "nav2_smoother::SimpleSmoother"
             tolerance: 1.0e-10
@@ -386,7 +380,7 @@ velocity_smoother:
         min_velocity: [-0.26, 0.0, -1.0]
         max_accel: [2.5, 0.0, 3.2]
         max_decel: [-2.5, 0.0, -3.2]
-        odom_topic: /odometry # --> "odom"
+        odom_topic: /odometry
         odom_duration: 0.1
         deadband_velocity: [0.0, 0.0, 0.0]
         velocity_timeout: 1.0
@@ -464,3 +458,62 @@ slam_toolbox:
         minimum_angle_penalty: 0.9
         minimum_distance_penalty: 0.5
         use_response_expansion: true
+
+
+collision_monitor:
+    ros__parameters:
+        base_frame_id: "base_footprint"
+        odom_frame_id: "odom"
+        cmd_vel_in_topic: "cmd_vel_nav"
+        cmd_vel_out_topic: "cmd_vel"
+        state_topic: "collision_monitor_state"
+        transform_tolerance: 0.5
+        source_timeout: 5.0
+        base_shift_correction: True
+        stop_pub_timeout: 2.0
+        use_realtime_priority: false
+        polygons: ["PolygonStop", "PolygonSlow", "PolygonLimit", "FootprintApproach"]
+        PolygonStop:
+            type: "polygon"
+            points: [0.50, 0.40, 0.40, -0.40, -0.50, -0.40, -0.50, 0.40]
+            action_type: "stop"
+            min_points: 4 # max_points: 3 for Humble
+            visualize: True
+            polygon_pub_topic: "polygon_stop"
+            enabled: True
+        PolygonSlow:
+            type: "polygon"
+            points: [0.60, 0.50, 0.60, -0.50, -0.60, -0.50, -0.60, 0.50]
+            action_type: "slowdown"
+            min_points: 4 # max_points: 3 for Humble
+            slowdown_ratio: 0.3
+            visualize: True
+            polygon_pub_topic: "polygon_slowdown"
+            enabled: True
+        PolygonLimit:
+            type: "polygon"
+            points: [0.65, 0.55, 0.65, -0.55, -0.65, -0.55, -0.65, 0.55]
+            action_type: "limit"
+            min_points: 4 # max_points: 3 for Humble
+            linear_limit: 0.4
+            angular_limit: 0.5
+            visualize: True
+            polygon_pub_topic: "polygon_limit"
+            enabled: True
+        FootprintApproach:
+            type: "polygon"
+            action_type: "approach"
+            footprint_topic: "/local_costmap/published_footprint"
+            time_before_collision: 2.0
+            simulation_time_step: 0.02
+            min_points: 6 # max_points: 5 for Humble
+            visualize: False
+            enabled: True
+        observation_sources: ["scan"]
+        scan:
+            source_timeout: 0.2
+            type: "scan"
+            topic: "/laser_scan"
+            min_height: 0.0
+            max_height: 2.0
+            enabled: True

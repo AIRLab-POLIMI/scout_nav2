@@ -19,7 +19,7 @@ amcl:
         max_beams: 180
         max_particles: 2000
         min_particles: 500
-        odom_frame_id: "odom"
+        odom_frame_id: odom
         pf_err: 0.05
         pf_z: 0.99
         recovery_alpha_fast: 0.0
@@ -48,7 +48,7 @@ amcl:
 bt_navigator:
     ros__parameters:
         global_frame: map
-        robot_base_frame: mobile_robot_base_link 
+        robot_base_frame: mobile_robot_base_link
         odom_topic: /odometry
         bt_loop_duration: 10
         default_server_timeout: 20
@@ -208,17 +208,16 @@ local_costmap:
             map_topic: /map
             rolling_window: true
             use_sim_time: True
-            width: 3
-            height: 3
+            width: 6
+            height: 6
             resolution: 0.05
             footprint: "[ [0.45, 0.35], [0.45, -0.35], [-0.45, -0.35], [-0.45, 0.35] ]"
             footprint_padding: 0.02
-            
-            plugins: ["static_layer", "inflation_layer", "obstacle_layer"]
+            plugins: ["static_layer", "inflation_layer", "obstacle_layer", "voxel_layer"]
             inflation_layer:
                 plugin: "nav2_costmap_2d::InflationLayer"
                 cost_scaling_factor: 3.0
-                inflation_radius: 0.55
+                inflation_radius: 0.3
             static_layer:
                 plugin: "nav2_costmap_2d::StaticLayer"
                 map_subscribe_transient_local: True
@@ -242,6 +241,30 @@ local_costmap:
                     obstacle_max_range: 10.0
                     obstacle_min_range: 0.0
                     inf_is_valid: false
+            voxel_layer:
+                plugin: "nav2_costmap_2d::VoxelLayer"
+                enabled: True
+                footprint_clearing_enabled: true
+                max_obstacle_height: 2.0
+                publish_voxel_map: True
+                origin_z: 0.0
+                z_resolution: 0.05
+                z_voxels: 16
+                unknown_threshold: 15
+                mark_threshold: 0
+                observation_sources: pointcloud
+                combination_method: 1
+                pointcloud:  # no frame set, uses frame from message
+                    topic: /ouster/points
+                    max_obstacle_height: 2.0
+                    min_obstacle_height: 0.0
+                    obstacle_max_range: 5.0
+                    obstacle_min_range: 0.0
+                    raytrace_max_range: 6.0
+                    raytrace_min_range: 0.0
+                    clearing: True
+                    marking: True
+                    data_type: "PointCloud2"
             always_send_full_costmap: True
 
 global_costmap:
@@ -253,14 +276,25 @@ global_costmap:
             robot_base_frame: mobile_robot_base_link
             map_topic: /map
             rolling_window: true
-            footprint: "[ [0.30, 0.25], [0.30, -0.25], [-0.30, -0.25], [-0.30, 0.25] ]"
-            footprint_padding: 0.03
+            footprint: "[ [0.45, 0.35], [0.45, -0.35], [-0.45, -0.35], [-0.45, 0.35] ]"
+            footprint_padding: 0.02
             resolution: 0.05
             width: 15
             height: 15
             track_unknown_space: true
             use_sim_time: False
-            plugins: ["obstacle_layer", "static_layer", "inflation_layer"]
+            plugins: ["static_layer", "inflation_layer", "obstacle_layer", "voxel_layer"]
+            static_layer:
+                plugin: "nav2_costmap_2d::StaticLayer"
+                map_subscribe_transient_local: True
+                enabled: true
+                subscribe_to_updates: true
+                transform_tolerance: 0.1
+                map_topic: /map
+            inflation_layer:
+                plugin: "nav2_costmap_2d::InflationLayer"
+                cost_scaling_factor: 3.0
+                inflation_radius: 0.3
             obstacle_layer:
                 plugin: "nav2_costmap_2d::ObstacleLayer"
                 enabled: True
@@ -276,17 +310,30 @@ global_costmap:
                     obstacle_max_range: 10.0
                     obstacle_min_range: 0.0
                     inf_is_valid: false
-            static_layer:
-                plugin: "nav2_costmap_2d::StaticLayer"
-                map_subscribe_transient_local: True
-                enabled: true
-                subscribe_to_updates: true
-                transform_tolerance: 0.1
-                map_topic: /map
-            inflation_layer:
-                plugin: "nav2_costmap_2d::InflationLayer"
-                cost_scaling_factor: 3.0
-                inflation_radius: 0.55
+            voxel_layer:
+                plugin: "nav2_costmap_2d::VoxelLayer"
+                enabled: True
+                footprint_clearing_enabled: true
+                max_obstacle_height: 2.0
+                publish_voxel_map: True
+                origin_z: 0.0
+                z_resolution: 0.05
+                z_voxels: 16
+                unknown_threshold: 15
+                mark_threshold: 0
+                observation_sources: pointcloud
+                combination_method: 1
+                pointcloud:  # no frame set, uses frame from message
+                    topic: /ouster/points
+                    max_obstacle_height: 2.0
+                    min_obstacle_height: 0.0
+                    obstacle_max_range: 5.0
+                    obstacle_min_range: 0.0
+                    raytrace_max_range: 5.0
+                    raytrace_min_range: 0.0
+                    clearing: True
+                    marking: True
+                    data_type: "PointCloud2"
             always_send_full_costmap: True
 
 # The yaml_filename does not need to be specified since it going to be set by defaults in launch.
@@ -322,6 +369,9 @@ planner_server:
 smoother_server:
     ros__parameters:
         smoother_plugins: ["simple_smoother"]
+        robot_base_frame: mobile_robot_base_link
+        footprint_topic: “global_costmap/published_footprint”
+        costmap_topic: “global_costmap/costmap_raw”
         simple_smoother:
             plugin: "nav2_smoother::SimpleSmoother"
             tolerance: 1.0e-10
@@ -376,7 +426,7 @@ velocity_smoother:
         min_velocity: [-0.26, 0.0, -1.0]
         max_accel: [2.5, 0.0, 3.2]
         max_decel: [-2.5, 0.0, -3.2]
-        odom_topic: /odometry # --> "odom"
+        odom_topic: /odometry
         odom_duration: 0.1
         deadband_velocity: [0.0, 0.0, 0.0]
         velocity_timeout: 1.0
@@ -454,3 +504,67 @@ slam_toolbox:
         minimum_angle_penalty: 0.9
         minimum_distance_penalty: 0.5
         use_response_expansion: true
+
+collision_monitor:
+    ros__parameters:
+        base_frame_id: "base_footprint"
+        odom_frame_id: "odom"
+        cmd_vel_in_topic: "cmd_vel_nav"
+        cmd_vel_out_topic: "cmd_vel"
+        state_topic: "collision_monitor_state"
+        transform_tolerance: 0.5
+        source_timeout: 5.0
+        base_shift_correction: True
+        stop_pub_timeout: 2.0
+        use_realtime_priority: false
+        polygons: ["PolygonStop", "PolygonSlow", "PolygonLimit", "FootprintApproach"]
+        PolygonStop:
+            type: "polygon"
+            points: [0.50, 0.40, 0.40, -0.40, -0.50, -0.40, -0.50, 0.40]
+            action_type: "stop"
+            min_points: 4 # max_points: 3 for Humble
+            visualize: True
+            polygon_pub_topic: "polygon_stop"
+            enabled: True
+        PolygonSlow:
+            type: "polygon"
+            points: [0.60, 0.50, 0.60, -0.50, -0.60, -0.50, -0.60, 0.50]
+            action_type: "slowdown"
+            min_points: 4 # max_points: 3 for Humble
+            slowdown_ratio: 0.3
+            visualize: True
+            polygon_pub_topic: "polygon_slowdown"
+            enabled: True
+        PolygonLimit:
+            type: "polygon"
+            points: [0.65, 0.55, 0.65, -0.55, -0.65, -0.55, -0.65, 0.55]
+            action_type: "limit"
+            min_points: 4 # max_points: 3 for Humble
+            linear_limit: 0.4
+            angular_limit: 0.5
+            visualize: True
+            polygon_pub_topic: "polygon_limit"
+            enabled: True
+        FootprintApproach:
+            type: "polygon"
+            action_type: "approach"
+            footprint_topic: "/local_costmap/published_footprint"
+            time_before_collision: 2.0
+            simulation_time_step: 0.02
+            min_points: 6 # max_points: 5 for Humble
+            visualize: False
+            enabled: True
+        observation_sources: ["scan", "pointcloud"]
+        scan:
+            source_timeout: 0.2
+            type: "scan"
+            topic: "/ouster/scan"
+            min_height: 0.0
+            max_height: 2.0
+            enabled: True
+        pointcloud:
+            type: "pointcloud"
+            topic: "/ouster/points"
+            min_height: 0.0
+            max_height: 1.5
+            enabled: True
