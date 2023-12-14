@@ -36,8 +36,9 @@ def generate_launch_description():
 
 
 def launch_setup(context, *args, **kwargs):
-	# launch nav2 with convenient prepared launch file
-	nav2_bringup_dir = get_package_share_directory("nav2_bringup")
+	# launch nav2 with convenient prepared launch files
+	# using specialized version of nav2 bringup to account for collision monitor parameters
+	nav2_bringup_dir = get_package_share_directory("nav2_bringup_custom")
 	nav2_launch_file = os.path.join(nav2_bringup_dir, "launch", "bringup_launch.py")
 
 	scout_nav2_dir = get_package_share_directory("scout_nav2")

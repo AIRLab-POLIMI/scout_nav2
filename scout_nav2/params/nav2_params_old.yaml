@@ -30,15 +30,15 @@ amcl:
         sigma_hit: 0.2
         tf_broadcast: true
         transform_tolerance: 1.0
-        update_min_a: 0.15
-        update_min_d: 0.2
+        update_min_a: 0.2
+        update_min_d: 0.25
         z_hit: 0.5
         z_max: 0.05
         z_rand: 0.5
         z_short: 0.05
-        scan_topic: /ouster/scan
+        scan_topic: /laser_scan
         map_topic: /map
-        set_initial_pose: false
+        set_initial_pose: true
         initial_pose:
             x: 0.0
             y: 0.0
@@ -126,7 +126,7 @@ controller_server:
         min_theta_velocity_threshold: 0.001
         failure_tolerance: 0.3
         progress_checker_plugins: ["progress_checker"]
-        goal_checker_plugins: ["general_goal_checker"] # "precise_goal_checker"
+        goal_checker_plugins: ["simple_goal_checker"]
         controller_plugins: ["FollowPath"]
         use_realtime_priority: false
 
@@ -142,97 +142,60 @@ controller_server:
             xy_goal_tolerance: 0.15
             yaw_goal_tolerance: 0.2
 
-        # MPPI controller parameters
+        # DWB parameters
         FollowPath:
-            plugin: "nav2_mppi_controller::MPPIController"
-            time_steps: 60
-            model_dt: 0.05
-            batch_size: 1000
-            vx_std: 0.2
-            vy_std: 0.2
-            wz_std: 0.4
-            vx_max: 0.5
-            vx_min: -0.35
-            vy_max: 0.5
-            wz_max: 1.9
-            iteration_count: 1
-            temperature: 0.3
-            gamma: 0.015
-            motion_model: "DiffDrive"
-            visualize: false
-            retry_attempt_limit: 1
-            regenerate_noises: false
-
-            # trajectory visualization
-            TrajectoryVisualizer:
-                trajectory_step: 5
-                time_step: 3
-            # path handler
+            plugin: "dwb_core::DWBLocalPlanner"
+            debug_trajectory_details: True
+            min_vel_x: 0.0
+            min_vel_y: 0.0
+            max_vel_x: 1.5
+            max_vel_y: 0.0
+            max_vel_theta: 1.0
+            min_speed_xy: 0.0
+            max_speed_xy: 1.5
+            min_speed_theta: 0.0
+            # Add high threshold velocity for turtlebot 3 issue.
+            # https://github.com/ROBOTIS-GIT/turtlebot3_simulations/issues/75
+            acc_lim_x: 2.5
+            acc_lim_y: 0.0
+            acc_lim_theta: 3.2
+            decel_lim_x: -2.5
+            decel_lim_y: 0.0
+            decel_lim_theta: -3.2
+            vx_samples: 20
+            vy_samples: 10
+            vtheta_samples: 20
+            sim_time: 2.5
+            linear_granularity: 0.5
+            angular_granularity: 0.05
+            time_granularity: 0.5
             transform_tolerance: 0.1
-            prune_distance: 1.5
-            enforce_path_inversion: false
-            inversion_xy_tolerance: 0.2
-            inversion_yaw_tolerance: 0.4
-            #AckermannConstraints:
-            #    min_turning_r: 0.2
-            critics: ["ConstraintCritic", "ObstaclesCritic", "GoalCritic", "GoalAngleCritic", "PathAlignCritic", "PathFollowCritic", "PathAngleCritic", "PreferForwardCritic"]
-            ConstraintCritic:
-                enabled: true
-                cost_power: 1
-                cost_weight: 4.0
-            GoalCritic:
-                enabled: true
-                cost_power: 1
-                cost_weight: 5.0
-                threshold_to_consider: 1.4
-            GoalAngleCritic:
-                enabled: true
-                cost_power: 1
-                cost_weight: 3.0
-                threshold_to_consider: 0.5
-            PreferForwardCritic:
-                enabled: true
-                cost_power: 1
-                cost_weight: 5.0
-                threshold_to_consider: 0.5
-            ObstaclesCritic:
-                enabled: true
-                cost_power: 1
-                repulsion_weight: 1.5
-                critical_weight: 20.0
-                consider_footprint: true
-                collision_cost: 10000.0
-                collision_margin_distance: 0.1
-                near_goal_distance: 0.5
-                #inflation_radius: 0.55 # (only in Humble)
-                #cost_scaling_factor: 10.0 # (only in Humble)
-            PathAlignCritic:
-                enabled: true
-                cost_power: 1
-                cost_weight: 14.0
-                max_path_occupancy_ratio: 0.05
-                trajectory_point_step: 3
-                threshold_to_consider: 0.5
-                offset_from_furthest: 20
-                use_path_orientations: false
-            PathFollowCritic:
-                enabled: true
-                cost_power: 1
-                cost_weight: 5.0
-                offset_from_furthest: 5
-                threshold_to_consider: 1.4
-            PathAngleCritic:
-                enabled: true
-                cost_power: 1
-                cost_weight: 2.0
-                offset_from_furthest: 4
-                threshold_to_consider: 0.5
-                max_angle_to_furthest: 1.0
-                mode: 0
-            # TwirlingCritic:
-            #   enabled: true
-            #   twirling_cost_power: 1
-            #   twirling_cost_weight: 10.0
+            short_circuit_trajectory_evaluation: True
+            stateful: True
+            critics: # critic scale values are multiplied by the trajectory score computed. Therefore it behaves like a weighted average of the trajectories
+                [
+                    "RotateToGoal", #Only allows the robot to rotate to the goal orientation when it is sufficiently close to the goal location.
+                    "GoalAlign", #Scores a trajectory based on how well aligned the trajectory is with the goal pose.
+                    "PathAlign", #Scores a trajectory based on how well the robot trajectory is aligned to the full path provided by the global planner. Alignment computed as relative angle difference
+                    "PathDist", #Scores a trajectory based on how well the robot trajectory is aligned to the full path provided by the global planner. Alignment computed as relative distance from lookahead point
+                    "GoalDist", #Scores a trajectory based on how close the trajectory gets the robot to the goal pose.
+                    #"Oscillation", #Prevents the robot from just moving backwards and forwards, and rotating in place left and right
+                    #"Twirling", #Prevents holonomic robots from spinning as they make their way to the goal.
+                    "BaseObstacle", #Scores a trajectory based on where the path passes over the costmap.
+                    "ObstacleFootprint", #Scores a trajectory based on verifying all points along the robot’s footprint don’t touch an obstacle marked in the costmap.
+                ]
+            BaseObstacle.scale: 2.0
+            ObstacleFootprint.scale: 2.0
+            PathAlign.scale: 10.0
+            PathAlign.forward_point_distance: 0.1
+            GoalAlign.scale: 5.0
+            GoalAlign.forward_point_distance: 0.1
+            PathDist.scale: 10.0
+            GoalDist.scale: 2.5
+            RotateToGoal.scale: 10.0
+            ##Oscillation.scale: 1.0
+            #Oscillation.reset_angle: 0.2
+
 
 local_costmap:
     local_costmap:
@@ -250,15 +213,12 @@ local_costmap:
             footprint: "[ [0.45, 0.35], [0.45, -0.35], [-0.45, -0.35], [-0.45, 0.35] ]"
             footprint_padding: 0.02
             lethal_cost_threshold: 100
-            track_unknown_space: true
 
-            plugins: ["static_layer", "inflation_layer", "obstacle_layer", "voxel_layer"]
+            plugins: ["static_layer", "inflation_layer", "obstacle_layer"]
             inflation_layer:
                 plugin: "nav2_costmap_2d::InflationLayer"
-                cost_scaling_factor: 4.0
+                cost_scaling_factor: 5.0
                 inflation_radius: 1.0
-                inflate_unknown: true
-                inflate_around_unknown: true
             static_layer:
                 plugin: "nav2_costmap_2d::StaticLayer"
                 map_subscribe_transient_local: True
@@ -271,40 +231,17 @@ local_costmap:
                 enabled: True
                 observation_sources: scan
                 scan:
-                    topic: /ouster/scan
+                    topic: /laser_scan
+                    sensor_frame: "lidar_2d"
                     max_obstacle_height: 2.0
                     clearing: True
                     marking: True
                     data_type: "LaserScan"
-                    raytrace_max_range: 10.0
+                    raytrace_max_range: 3.0
                     raytrace_min_range: 0.0
-                    obstacle_max_range: 10.0
+                    obstacle_max_range: 3.0
                     obstacle_min_range: 0.0
                     inf_is_valid: false
-            voxel_layer:
-                plugin: "nav2_costmap_2d::VoxelLayer"
-                enabled: True
-                footprint_clearing_enabled: true
-                max_obstacle_height: 2.0
-                publish_voxel_map: True
-                origin_z: 0.0
-                z_resolution: 0.05
-                z_voxels: 16
-                unknown_threshold: 15
-                mark_threshold: 0
-                observation_sources: pointcloud
-                combination_method: 1
-                pointcloud:  # no frame set, uses frame from message
-                    topic: /ouster/points
-                    max_obstacle_height: 2.0
-                    min_obstacle_height: 0.0
-                    obstacle_max_range: 5.0
-                    obstacle_min_range: 0.0
-                    raytrace_max_range: 6.0
-                    raytrace_min_range: 0.0
-                    clearing: True
-                    marking: True
-                    data_type: "PointCloud2"
             always_send_full_costmap: True
 
 global_costmap:
@@ -322,7 +259,10 @@ global_costmap:
             width: 12
             height: 12
             track_unknown_space: true
-            plugins: ["static_layer", "inflation_layer", "obstacle_layer", "voxel_layer"]
+            use_sim_time: True
+            lethal_cost_threshold: 100
+
+            plugins: ["static_layer", "inflation_layer", "obstacle_layer"]
             static_layer:
                 plugin: "nav2_costmap_2d::StaticLayer"
                 map_subscribe_transient_local: True
@@ -332,49 +272,23 @@ global_costmap:
                 map_topic: /map
             inflation_layer:
                 plugin: "nav2_costmap_2d::InflationLayer"
-                cost_scaling_factor: 4.0
+                cost_scaling_factor: 5.0
                 inflation_radius: 1.0
-                inflate_unknown: true
-                inflate_around_unknown: true
             obstacle_layer:
                 plugin: "nav2_costmap_2d::ObstacleLayer"
                 enabled: True
                 observation_sources: scan
                 scan:
-                    topic: /ouster/scan
+                    topic: /laser_scan
                     max_obstacle_height: 2.0
                     clearing: True
                     marking: True
                     data_type: "LaserScan"
-                    raytrace_max_range: 10.0
-                    raytrace_min_range: 0.0
-                    obstacle_max_range: 10.0
-                    obstacle_min_range: 0.0
-                    inf_is_valid: false
-            voxel_layer:
-                plugin: "nav2_costmap_2d::VoxelLayer"
-                enabled: True
-                footprint_clearing_enabled: true
-                max_obstacle_height: 2.0
-                publish_voxel_map: True
-                origin_z: 0.0
-                z_resolution: 0.05
-                z_voxels: 16
-                unknown_threshold: 15
-                mark_threshold: 0
-                observation_sources: pointcloud
-                combination_method: 1
-                pointcloud:  # no frame set, uses frame from message
-                    topic: /ouster/points
-                    max_obstacle_height: 2.0
-                    min_obstacle_height: 0.0
-                    obstacle_max_range: 5.0
-                    obstacle_min_range: 0.0
                     raytrace_max_range: 5.0
                     raytrace_min_range: 0.0
-                    clearing: True
-                    marking: True
-                    data_type: "PointCloud2"
+                    obstacle_max_range: 5.0
+                    obstacle_min_range: 0.0
+                    inf_is_valid: false
             always_send_full_costmap: True
 
 map_saver:
@@ -527,7 +441,7 @@ slam_toolbox:
         odom_frame: odom
         map_frame: map
         base_frame: base_footprint # --> base_footprint
-        scan_topic: /ouster/scan # --> /scan
+        scan_topic: /laser_scan # --> /scan
         use_map_saver: true
         mode: mapping #localization
 
@@ -599,10 +513,11 @@ collision_monitor:
         base_shift_correction: True
         stop_pub_timeout: 2.0
         use_realtime_priority: false
-        polygons: ["PolygonStop", "PolygonSlow", "PolygonLimit", "FootprintApproach"]
+        polygons:
+            ["PolygonStop", "PolygonSlow", "PolygonLimit", "FootprintApproach"]
         PolygonStop:
             type: "polygon"
-            points: [0.50, 0.40, 0.40, -0.40, -0.50, -0.40, -0.50, 0.40]
+            points: [0.50, 0.40, 0.50, -0.40, -0.50, -0.40, -0.50, 0.40]
             action_type: "stop"
             min_points: 4 # max_points: 3 for Humble
             visualize: True
@@ -630,23 +545,17 @@ collision_monitor:
         FootprintApproach:
             type: "polygon"
             action_type: "approach"
-            footprint_topic: "local_costmap/published_footprint"
+            footprint_topic: "/local_costmap/published_footprint"
             time_before_collision: 2.0
             simulation_time_step: 0.02
             min_points: 6 # max_points: 5 for Humble
             visualize: False
             enabled: True
-        observation_sources: ["scan", "pointcloud"]
+        observation_sources: ["scan"]
         scan:
             source_timeout: 0.2
             type: "scan"
-            topic: "/ouster/scan"
+            topic: "/laser_scan"
             min_height: 0.0
             max_height: 2.0
-            enabled: True
-        pointcloud:
-            type: "pointcloud"
-            topic: "/ouster/points"
-            min_height: 0.0
-            max_height: 1.5
             enabled: True
