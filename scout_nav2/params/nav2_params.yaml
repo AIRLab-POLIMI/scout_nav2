@@ -235,7 +235,7 @@ controller_server:
             #   enabled: true
             #   twirling_cost_power: 1
             #   twirling_cost_weight: 10.0
-
+            
 local_costmap:
     local_costmap:
         ros__parameters:
@@ -245,7 +245,6 @@ local_costmap:
             robot_base_frame: mobile_robot_base_link
             map_topic: /map
             rolling_window: true
-            use_sim_time: True
             width: 5
             height: 5
             resolution: 0.05
@@ -254,36 +253,28 @@ local_costmap:
             lethal_cost_threshold: 100
             track_unknown_space: true
 
-            plugins: ["static_layer", "inflation_layer", "obstacle_layer"]
-            inflation_layer:
-                plugin: "nav2_costmap_2d::InflationLayer"
-                cost_scaling_factor: 4.0
-                inflation_radius: 1.0
-                inflate_unknown: true
-                inflate_around_unknown: true
-            static_layer:
-                plugin: "nav2_costmap_2d::StaticLayer"
-                map_subscribe_transient_local: True
-                enabled: true
-                subscribe_to_updates: true
-                transform_tolerance: 0.1
-                map_topic: /map
+            plugins: ["obstacle_layer", "inflation_layer"]
+
             obstacle_layer:
                 plugin: "nav2_costmap_2d::ObstacleLayer"
                 enabled: True
                 observation_sources: scan
                 scan:
                     topic: /laser_scan
-                    sensor_frame: "lidar_2d"
                     max_obstacle_height: 2.0
                     clearing: True
                     marking: True
                     data_type: "LaserScan"
-                    raytrace_max_range: 3.0
+                    raytrace_max_range: 6.0
                     raytrace_min_range: 0.0
-                    obstacle_max_range: 3.0
+                    obstacle_max_range: 6.0
                     obstacle_min_range: 0.0
                     inf_is_valid: false
+
+            inflation_layer:
+                plugin: "nav2_costmap_2d::InflationLayer"
+                cost_scaling_factor: 4.0
+                inflation_radius: 1.0
             always_send_full_costmap: True
 
 global_costmap:
@@ -303,7 +294,7 @@ global_costmap:
             track_unknown_space: true
             lethal_cost_threshold: 100
 
-            plugins: ["static_layer", "inflation_layer", "obstacle_layer"]
+            plugins: ["static_layer", "obstacle_layer", "inflation_layer"]
             static_layer:
                 plugin: "nav2_costmap_2d::StaticLayer"
                 map_subscribe_transient_local: True
@@ -311,12 +302,7 @@ global_costmap:
                 subscribe_to_updates: true
                 transform_tolerance: 0.1
                 map_topic: /map
-            inflation_layer:
-                plugin: "nav2_costmap_2d::InflationLayer"
-                cost_scaling_factor: 4.0
-                inflation_radius: 1.0
-                inflate_unknown: true
-                inflate_around_unknown: true
+
             obstacle_layer:
                 plugin: "nav2_costmap_2d::ObstacleLayer"
                 enabled: True
@@ -327,11 +313,18 @@ global_costmap:
                     clearing: True
                     marking: True
                     data_type: "LaserScan"
-                    raytrace_max_range: 5.0
+                    raytrace_max_range: 6.0
                     raytrace_min_range: 0.0
-                    obstacle_max_range: 5.0
+                    obstacle_max_range: 6.0
                     obstacle_min_range: 0.0
                     inf_is_valid: false
+
+            inflation_layer:
+                plugin: "nav2_costmap_2d::InflationLayer"
+                cost_scaling_factor: 4.0
+                inflation_radius: 1.0
+                inflate_unknown: true
+                inflate_around_unknown: true
             always_send_full_costmap: True
 
 map_saver:
