@@ -42,7 +42,7 @@ def generate_launch_description():
 	# whether to launch rviz with this launch file or not
 	rviz_arg = DeclareLaunchArgument(
 		name="rviz",
-		default_value="true",
+		default_value="false",
 		description="Open RViz with model display configuration",
 		choices=["true", "false"],
 	)
