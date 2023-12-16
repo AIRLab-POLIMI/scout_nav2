@@ -1,0 +1,120 @@
+<?xml version="1.0"?>
+
+<robot name="scout_v2" xmlns:xacro="http://ros.org/wiki/xacro">
+
+	<xacro:macro name="scout_v2" params="odometry_source load_gazebo">
+
+		<!-- Variables -->
+
+		<!-- Collision boxes geometries -->
+		<xacro:property name="base_x_size" value="0.9250000" />
+		<xacro:property name="base_y_size" value="0.380000" />
+		<xacro:property name="base_z_size" value="0.210000" />
+
+		<!-- vehicle geometries -->
+		<xacro:property name="wheelbase" value="0.498" />
+		<xacro:property name="track" value="0.58306" />
+		<xacro:property name="wheel_vertical_offset" value="-0.0702" />
+
+		<xacro:property name="wheel_length" value="1.1653e-01" />
+		<xacro:property name="wheel_radius" value="1.6459e-01" />
+
+		<!-- virtual joints to link to ground and to odom -->
+		<link name="base_footprint" />
+
+		<joint name="base_footprint_to_base_link" type="fixed">
+			<origin xyz="0 0 ${wheel_radius - wheel_vertical_offset}" rpy="0 0 0" />
+			<parent link="base_footprint" />
+			<child link="base_link" />
+		</joint>
+
+		<link name="base_link" />
+
+		<joint name="base_link_to_mobile_robot" type="fixed">
+			<origin xyz="0 0 0" rpy="0 0 0" />
+			<parent link="base_link" />
+			<child link="mobile_robot_base_link" />
+		</joint>
+
+		<!-- Base link -->
+		<link name="mobile_robot_base_link">
+			<visual>
+				<origin xyz="0 0 0" rpy="0 0 0" />
+				<geometry>
+					<mesh
+						filename="file://$(find agilex_scout)/meshes/mobile_robot/mobile_robot_base_link.dae" />
+				</geometry>
+			</visual>
+			<collision>
+				<origin xyz="0 0 0.008" rpy="0 0 0" />
+				<geometry>
+					<box size="${base_x_size} ${base_y_size} ${base_z_size}" />
+				</geometry>
+			</collision>
+			<collision>
+				<origin xyz="0 0 ${base_z_size/6}" rpy="0 0 0" />
+				<geometry>
+					<box size="${base_x_size/6} ${base_y_size*1.65} ${base_z_size/3}" />
+				</geometry>
+			</collision>
+		</link>
+
+		<link name="inertial_link">
+			<inertial>
+				<mass value="50" />
+				<!-- <mass value="50" /> -->
+				<!-- <origin xyz="-0.00065 -0.085 0.062" />
+			<inertia ixx="0.6022" ixy="-0.02364" ixz="-0.1197" iyy="1.7386" iyz="-0.001544" izz="2.0296" /> -->
+				<origin xyz="0.0 0.0 0.0" />
+				<inertia ixx="2.288641" ixy="0" ixz="0" iyy="5.103976" iyz="0" izz="3.431465" />
+			</inertial>
+		</link>
+
+		<joint name="inertial_joint" type="fixed">
+			<origin xyz="0 0 0" rpy="0 0 0" />
+			<parent link="mobile_robot_base_link" />
+			<child link="inertial_link" />
+		</joint>
+
+		<!-- Scout wheel macros -->
+		<xacro:include filename="$(find agilex_scout)/urdf/mobile_robot/scout_wheel_type1.xacro" />
+		<xacro:include filename="$(find agilex_scout)/urdf/mobile_robot/scout_wheel_type2.xacro" />
+		<!-- wheel labeled from 0 to 3, conter-clockwise, starting from front right wheel -->
+		<!-- motor 1 and 2 (left side) are mechanically installed in a reversed direction -->
+		<xacro:scout_wheel_type1 wheel_prefix="front_right" x="${wheelbase/2}" y="${-track/2}"
+			z="${wheel_vertical_offset}" phi="0" />
+
+		<xacro:scout_wheel_type2 wheel_prefix="front_left" x="${wheelbase/2}" y="${track/2}"
+			z="${wheel_vertical_offset}" phi="0" />
+
+		<xacro:scout_wheel_type1 wheel_prefix="rear_left" x="${-wheelbase/2}" y="${track/2}"
+			z="${wheel_vertical_offset}" phi="0" />
+
+		<xacro:scout_wheel_type2 wheel_prefix="rear_right" x="${-wheelbase/2}" y="${-track/2}"
+			z="${wheel_vertical_offset}" phi="0" />
+
+
+		<link name="front_mount" />
+
+		<joint name="front_mount_joint" type="fixed">
+			<origin xyz="0.325 0.0 0.112701" rpy="0 0 0" />
+			<parent link="mobile_robot_base_link" />
+			<child link="front_mount" />
+		</joint>
+
+		<link name="rear_mount" />
+
+		<joint name="rear_mount_joint" type="fixed">
+			<origin xyz="-0.325 0.0 0.112701" rpy="0 0 0" />
+			<parent link="mobile_robot_base_link" />
+			<child link="rear_mount" />
+		</joint>
+
+		<!-- Gazebo definitions  -->
+		<xacro:if value="${load_gazebo}">
+			<xacro:include filename="$(find agilex_scout)/urdf/mobile_robot/scout_v2.gazebo" />
+		</xacro:if>
+
+	</xacro:macro>
+
+</robot>

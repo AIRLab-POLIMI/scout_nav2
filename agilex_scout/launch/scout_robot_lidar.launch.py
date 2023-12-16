@@ -62,9 +62,9 @@ def generate_launch_description():
 			FindExecutable(name="xacro"),
 			" ",
 			scout_description_file,
-			" load_gazebo:=",
-			LaunchConfiguration("load_gazebo"),
-			" odometry_source:=_" # not used
+			" load_gazebo:=false",
+			" odometry_source:=_", # not used
+			" simulation:=false"
 		]
 	)
 	scout_description = {
@@ -93,7 +93,6 @@ def generate_launch_description():
 		#remappings=[('/robot_description', '/scout_description')]
 	)
 
-	
 
 	lidar_node = IncludeLaunchDescription(
         PythonLaunchDescriptionSource([
@@ -109,50 +108,6 @@ def generate_launch_description():
 			'timestamp_mode': 'TIME_FROM_ROS_TIME'
         }.items()
     )
-
-	os1_urdf = PathJoinSubstitution([
-        FindPackageShare('agilex_scout'), 'urdf/sensors/os1.urdf'
-	])
-	os1_description_content = Command(
-		[
-			FindExecutable(name="xacro"),
-			" ",
-			os1_urdf
-		]
-	)
-	os1_description = {'robot_description': ParameterValue(os1_description_content, value_type=str)}
-
-	"""not needed because no joints are present
-	os1_joint_state_publisher_node = Node(
-        package='joint_state_publisher',
-        executable='joint_state_publisher',
-        name='joint_state_publisher_os1',
-        output='screen',
-        parameters=[os1_description],
-        arguments=[os1_urdf],
-        remappings=[('/robot_description', '/os1_description')]
-    )
-	"""
-
-	os1_urdf_publisher_node = Node(
-        package='robot_state_publisher',
-        executable='robot_state_publisher',
-        name='robot_state_publisher_os1',
-        output='screen',
-        parameters=[os1_description],
-        arguments=[os1_urdf],
-        remappings=[('/robot_description', '/os1_description')]
-    )
-
-	os1_tf_static = Node(
-		package = "tf2_ros", 
-		executable = "static_transform_publisher",
-		arguments = [
-			"--x", "0.15", "--y", "0.0", "--z", "0.49", 
-			"--yaw", "0.0", "--pitch", "0.0", "--roll", "0.0", 
-			"--frame-id", "base_link", "--child-frame-id", "os_sensor"
-		]
-	)
 	
 	pointcloud_to_laserscan_node = Node(
 		package='pointcloud_to_laserscan',
@@ -162,11 +117,11 @@ def generate_launch_description():
 					('scan', "/ouster/scan")],
 		parameters=[{
 			'transform_tolerance': 0.05,
-			'min_height': 0.0,
+			'min_height': -0.5,
 			'max_height': 1.5,
 			'angle_min': -pi,
 			'angle_max': pi,
-			'angle_increment': pi / 180.0,
+			'angle_increment': pi / 180.0 / 2.0,
 			'scan_time': 1/30, # 30Hz
 			'range_min': 1.0,
 			'range_max': 100.0,
@@ -185,7 +140,7 @@ def generate_launch_description():
 		package="rviz2",
 		executable="rviz2",
 		arguments=["-d", rviz2_file],
-		parameters=[scout_description, os1_description],
+		parameters=[scout_description],
 	)
 
 	# IMU launch 
@@ -228,8 +183,6 @@ def generate_launch_description():
 		use_sim_time_arg,
 		scout_base_node,
 		scout_robot_state_publisher_node,
-		os1_urdf_publisher_node,
-		os1_tf_static,
 		lidar_node,
 		rviz2_node,
 		pointcloud_to_laserscan_node,

@@ -93,6 +93,7 @@ Reference:
 			<wheel_radius>${wheel_radius}</wheel_radius>
 			<topic>/scout/cmd_vel</topic>
 			<xacro:if value="${odometry_source == 'encoders'}">
+				<!-- NOTE: odometry source from wheel encoders not working for skid steering kinematis robot -->
 				<odom_topic>/scout/odometry</odom_topic>
 				<odom_publish_frequency>50</odom_publish_frequency>
 				<tf_topic>/scout/tf</tf_topic>
@@ -123,7 +124,7 @@ Reference:
 	</gazebo>
 
 	<!-- ............................. ground truth .................................... -->
-
+	<!-- NOTE: only source of odometry actually working for a skid steering robot -->
 	<xacro:if value="${odometry_source == 'ground_truth'}">
 		<gazebo>
 			<plugin filename="libignition-gazebo6-odometry-publisher-system"
@@ -145,12 +146,12 @@ Reference:
 	<gazebo reference="lidar_2d">
 		<sensor name='gpu_lidar' type='gpu_lidar'>
 			<topic>/scout/laser_scan</topic>
-			<update_rate>50</update_rate>
+			<update_rate>75</update_rate>
 			<ignition_frame_id>lidar_2d</ignition_frame_id>
 			<lidar>
 				<scan>
 					<horizontal>
-						<samples>361</samples>
+						<samples>720</samples>
 						<resolution>1</resolution>
 						<min_angle>0.0</min_angle>
 						<max_angle>${2.0*pi}</max_angle>

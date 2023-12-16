@@ -1,17 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
-<robot name="os1_description"
-    xmlns:xacro="http://www.ros.org/wiki/xacro">
+<robot name="os1_description" xmlns:xacro="http://www.ros.org/wiki/xacro">
 
-    <link name="os_sensor">
-        <visual>
-            <origin xyz="0.0 0.0 0.0" rpy="0 0 0" />
-            <geometry>
-                <mesh filename="file://$(find agilex_scout)/meshes/sensors/laser_link.stl" scale="1.5 1.5 1.5" />
-            </geometry>
-            <material name="Gray">
-                <color rgba="0.5 0.5 0.5 1" />
-            </material>
-        </visual>
-    </link>
+	<link name="os_sensor">
+		<visual>
+			<origin xyz="0.0 0.0 0.0" rpy="0 0 0" />
+			<geometry>
+				<mesh filename="file://$(find agilex_scout)/meshes/sensors/laser_link.stl"
+					scale="1.5 1.5 1.5" />
+			</geometry>
+			<material name="Gray">
+				<color rgba="0.5 0.5 0.5 1" />
+			</material>
+		</visual>
+	</link>
 
 </robot>

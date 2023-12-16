@@ -31,14 +31,14 @@ def generate_launch_description():
 	)
 
 	# where to get odometry information from
-	#NOTE: odometry source wheel encoders doesn't work for a skid steering kinematics robot yet
+	# NOTE: odometry source wheel encoders doesn't work for a skid steering kinematics robot yet
 	odometry_source_arg = DeclareLaunchArgument(
 		name="odometry_source",
 		default_value="ground_truth",
 		description="Odometry source (ground_truth or wheel encoders)",
 		choices=["encoders", "ground_truth"],
 	)
-	
+
 	# whether to launch rviz with this launch file or not
 	rviz_arg = DeclareLaunchArgument(
 		name="rviz",
@@ -85,8 +85,7 @@ def generate_launch_description():
 	scout_description_file = os.path.join(
 		get_package_share_directory("agilex_scout"),
 		"urdf",
-		"mobile_robot",
-		"scout_v2.xacro",
+		"robot.urdf.xacro"
 	)
 	scout_description_content = Command(
 		[
@@ -95,7 +94,8 @@ def generate_launch_description():
 			scout_description_file,
 			" odometry_source:=",
 			LaunchConfiguration("odometry_source"),
-			" load_gazebo:=true"
+			" load_gazebo:=true",
+			" simulation:=true"
 		]
 	)
 	scout_description = {
@@ -110,6 +110,10 @@ def generate_launch_description():
 		output="screen",
 		parameters=[{"use_sim_time": use_sim_time}, scout_description],
 		# arguments=[scout_description_file],
+		remappings=[
+			("/joint_states", "/scout/joint_states"),
+			("/robot_description", "/scout/robot_description"),
+		],
 	)
 
 	# spawn Scout robot from xacro description published in /robot_description topic
@@ -121,7 +125,7 @@ def generate_launch_description():
 			"-name",
 			"scout_v2",
 			"-topic",
-			"/robot_description",
+			"/scout/robot_description",
 			"-x",
 			"0",
 			"-y",
