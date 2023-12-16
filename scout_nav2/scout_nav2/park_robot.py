@@ -47,6 +47,13 @@ from nav2_simple_commander.robot_navigator import BasicNavigator, TaskResult
 
 
 class RobotParking(Node):
+
+	NO_INFORMATION = 255
+	LETHAL_OBSTACLE = 254
+	INSCRIBED_INFLATED_OBSTACLE = 253
+	MAX_NON_OBSTACLE = 252
+	FREE_SPACE = 0
+
 	# Constructor
 	def __init__(self, navigator: BasicNavigator):
 		super().__init__("robot_parking")
@@ -367,7 +374,7 @@ class RobotParking(Node):
 			theta = target_candidates[row][2]
 			cost = self.compute_footprint_cost_at_pose(x, y, theta)
 
-			if cost >= 253:  # collision detected
+			if cost >= self.LETHAL_OBSTACLE:  # collision detected
 				target_candidates = np.delete(target_candidates, row, axis=0)
 				total -= 1
 			else:

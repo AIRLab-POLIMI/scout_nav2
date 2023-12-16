@@ -47,20 +47,21 @@ def launch_setup(context, *args, **kwargs):
 	# full configuration parameters file
 	# choose map to load depending on test environment
 	if LaunchConfiguration("simulation").perform(context) == "true":
+		# Gazebo simulation
 		params_file_name = "nav2_params.yaml"
 		map_file = "warehouse/map_slam.yaml"
+		use_sim_time = "true"
 	elif LaunchConfiguration("simulation").perform(context) == "false":
+		# Real robot
 		params_file_name = "nav2_params_scout.yaml"
 		map_file = "airlab/map_lidar3d.yaml"
+		use_sim_time = "false"
+
 
 	# parameters file path
 	nav2_params_file = os.path.join(scout_nav2_dir, "params", params_file_name)
 	# map file path
 	map_yaml_file = os.path.join(scout_nav2_dir, "maps", map_file)
-
-	use_sim_time = (
-		"true" if LaunchConfiguration("simulation").perform(context) == "true" else "false"
-	)
 
 	# if slam is enabled --> slam + localization + navigation
 	nav2_slam_launch = IncludeLaunchDescription(
