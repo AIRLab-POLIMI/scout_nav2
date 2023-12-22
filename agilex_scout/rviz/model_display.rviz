@@ -5,9 +5,8 @@ Panels:
     Property Tree Widget:
       Expanded:
         - /Global Options1
-        - /Odometry1
       Splitter Ratio: 0.5
-    Tree Height: 649
+    Tree Height: 637
   - Class: rviz_common/Selection
     Name: Selection
   - Class: rviz_common/Tool Properties
@@ -57,7 +56,7 @@ Visualization Manager:
         Durability Policy: Volatile
         History Policy: Keep Last
         Reliability Policy: Reliable
-        Value: /robot_description
+        Value: /scout/robot_description
       Enabled: true
       Links:
         All Links Enabled: true
@@ -65,6 +64,14 @@ Visualization Manager:
         Expand Link Details: false
         Expand Tree: false
         Link Tree Style: Links in Alphabetic Order
+        base_footprint:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        base_link:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
         front_left_wheel_link:
           Alpha: 1
           Show Axes: false
@@ -87,6 +94,11 @@ Visualization Manager:
           Alpha: 1
           Show Axes: false
           Show Trail: false
+        lidar_3d:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
         mobile_robot_base_link:
           Alpha: 1
           Show Axes: false
@@ -102,11 +114,6 @@ Visualization Manager:
           Show Axes: false
           Show Trail: false
         rear_right_wheel_link:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        two_d_lidar:
           Alpha: 1
           Show Axes: false
           Show Trail: false
@@ -124,6 +131,10 @@ Visualization Manager:
       Frame Timeout: 15
       Frames:
         All Enabled: true
+        base_footprint:
+          Value: true
+        base_link:
+          Value: true
         front_left_wheel_link:
           Value: true
         front_mount:
@@ -134,17 +145,19 @@ Visualization Manager:
           Value: true
         inertial_link:
           Value: true
+        lidar_3d:
+          Value: true
         map:
           Value: true
         mobile_robot_base_link:
+          Value: true
+        odom:
           Value: true
         rear_left_wheel_link:
           Value: true
         rear_mount:
           Value: true
         rear_right_wheel_link:
-          Value: true
-        two_d_lidar:
           Value: true
         world:
           Value: true
@@ -154,25 +167,28 @@ Visualization Manager:
       Show Axes: true
       Show Names: false
       Tree:
-        mobile_robot_base_link:
-          front_left_wheel_link:
-            {}
-          front_mount:
-            {}
-          front_right_wheel_link:
-            {}
-          imu_frame:
-            {}
-          inertial_link:
-            {}
-          rear_left_wheel_link:
-            {}
-          rear_mount:
-            {}
-          rear_right_wheel_link:
-            {}
-          two_d_lidar:
-            {}
+        odom:
+          base_footprint:
+            base_link:
+              mobile_robot_base_link:
+                front_left_wheel_link:
+                  {}
+                front_mount:
+                  {}
+                front_right_wheel_link:
+                  {}
+                imu_frame:
+                  {}
+                inertial_link:
+                  {}
+                lidar_3d:
+                  {}
+                rear_left_wheel_link:
+                  {}
+                rear_mount:
+                  {}
+                rear_right_wheel_link:
+                  {}
         world:
           map:
             {}
@@ -181,14 +197,14 @@ Visualization Manager:
     - Alpha: 1
       Autocompute Intensity Bounds: true
       Autocompute Value Bounds:
-        Max Value: 10
-        Min Value: -10
+        Max Value: 0.38479146361351013
+        Min Value: 0.38478919863700867
         Value: true
       Axis: Z
       Channel Name: intensity
       Class: rviz_default_plugins/LaserScan
       Color: 255; 255; 255
-      Color Transformer: Intensity
+      Color Transformer: FlatColor
       Decay Time: 0
       Enabled: true
       Invert Rainbow: false
@@ -200,14 +216,14 @@ Visualization Manager:
       Position Transformer: XYZ
       Selectable: true
       Size (Pixels): 8
-      Size (m): 0.07999999821186066
+      Size (m): 0.05000000074505806
       Style: Boxes
       Topic:
-        Depth: 5
+        Depth: 10
         Durability Policy: Volatile
         Filter size: 10
         History Policy: Keep Last
-        Reliability Policy: Reliable
+        Reliability Policy: Best Effort
         Value: /laser_scan
       Use Fixed Frame: true
       Use rainbow: true
@@ -251,11 +267,45 @@ Visualization Manager:
         Reliability Policy: Reliable
         Value: /odometry
       Value: true
+    - Alpha: 1
+      Autocompute Intensity Bounds: true
+      Autocompute Value Bounds:
+        Max Value: 6.425930023193359
+        Min Value: -0.033162921667099
+        Value: true
+      Axis: Z
+      Channel Name: intensity
+      Class: rviz_default_plugins/PointCloud2
+      Color: 255; 255; 255
+      Color Transformer: AxisColor
+      Decay Time: 0
+      Enabled: true
+      Invert Rainbow: false
+      Max Color: 255; 255; 255
+      Max Intensity: 0
+      Min Color: 0; 0; 0
+      Min Intensity: 0
+      Name: PointCloud2
+      Position Transformer: XYZ
+      Selectable: true
+      Size (Pixels): 3
+      Size (m): 0.009999999776482582
+      Style: Points
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        Filter size: 10
+        History Policy: Keep Last
+        Reliability Policy: Best Effort
+        Value: /points
+      Use Fixed Frame: true
+      Use rainbow: true
+      Value: true
   Enabled: true
   Global Options:
     Background Color: 48; 48; 48
     Fixed Frame: odom
-    Frame Rate: 60
+    Frame Rate: 120
   Name: root
   Tools:
     - Class: rviz_default_plugins/Interact
@@ -297,25 +347,25 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz_default_plugins/Orbit
-      Distance: 4.399091720581055
+      Distance: 8.436864852905273
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
         Swap Stereo Eyes: false
         Value: false
       Focal Point:
-        X: -0.3284830152988434
-        Y: -0.22987136244773865
-        Z: 0.09097063541412354
+        X: -0.13031771779060364
+        Y: 0.07923047244548798
+        Z: 0.1691289246082306
       Focal Shape Fixed Size: true
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.3953985571861267
+      Pitch: 0.8853985071182251
       Target Frame: <Fixed Frame>
       Value: Orbit (rviz)
-      Yaw: 4.500399112701416
+      Yaw: 2.535383701324463
     Saved: ~
 Window Geometry:
   Displays:
@@ -323,7 +373,7 @@ Window Geometry:
   Height: 1001
   Hide Left Dock: false
   Hide Right Dock: false
-  QMainWindow State: 000000ff00000000fd0000000400000000000001ed0000032cfc0200000008fb0000001200530065006c0065006300740069006f006e00000001e10000009b0000007901000003fb0000001e0054006f006f006c002000500072006f007000650072007400690065007302000001ed000001df00000185000000a3fb000000120056006900650077007300200054006f006f02000001df000002110000018500000122fb000000200054006f006f006c002000500072006f0070006500720074006900650073003203000002880000011d000002210000017afb000000100044006900730070006c006100790073010000004b0000032c000000fc01000003fb0000002000730065006c0065006300740069006f006e00200062007500660066006500720200000138000000aa0000023a00000294fb00000014005700690064006500530074006500720065006f02000000e6000000d2000003ee0000030bfb0000000c004b0069006e0065006300740200000186000001060000030c0000026100000001000001100000032cfc0200000003fb0000001e0054006f006f006c002000500072006f00700065007200740069006500730100000041000000780000000000000000fb0000000a00560069006500770073010000004b0000032c000000d101000003fb0000001200530065006c0065006300740069006f006e010000025a000000b200000000000000000000000200000490000000a9fc0100000001fb0000000a00560069006500770073030000004e00000080000002e10000019700000003000007800000004bfc0100000002fb0000000800540069006d0065010000000000000780000002ce01000003fb0000000800540069006d00650100000000000004500000000000000000000004810000032c00000004000000040000000800000008fc0000000100000002000000010000000a0054006f006f006c00730100000000ffffffff0000000000000000
+  QMainWindow State: 000000ff00000000fd0000000400000000000001ed00000323fc0200000008fb0000001200530065006c0065006300740069006f006e00000001e10000009b0000007901000003fb0000001e0054006f006f006c002000500072006f007000650072007400690065007302000001ed000001df00000185000000a3fb000000120056006900650077007300200054006f006f02000001df000002110000018500000122fb000000200054006f006f006c002000500072006f0070006500720074006900650073003203000002880000011d000002210000017afb000000100044006900730070006c006100790073010000004e00000323000000ff01000003fb0000002000730065006c0065006300740069006f006e00200062007500660066006500720200000138000000aa0000023a00000294fb00000014005700690064006500530074006500720065006f02000000e6000000d2000003ee0000030bfb0000000c004b0069006e0065006300740200000186000001060000030c00000261000000010000011000000323fc0200000003fb0000001e0054006f006f006c002000500072006f00700065007200740069006500730100000041000000780000000000000000fb0000000a00560069006500770073010000004e00000323000000d701000003fb0000001200530065006c0065006300740069006f006e010000025a000000b200000000000000000000000200000490000000a9fc0100000001fb0000000a00560069006500770073030000004e00000080000002e10000019700000003000007800000004efc0100000002fb0000000800540069006d0065010000000000000780000002e701000003fb0000000800540069006d00650100000000000004500000000000000000000004810000032300000004000000040000000800000008fc0000000100000002000000010000000a0054006f006f006c00730100000000ffffffff0000000000000000
   Selection:
     collapsed: false
   Time:

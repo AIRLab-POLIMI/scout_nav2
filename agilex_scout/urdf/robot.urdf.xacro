@@ -10,7 +10,7 @@
 
 	<xacro:arg name="simulation" default="true" />
 
-	<xacro:include filename="$(find agilex_scout)/urdf/mobile_robot/scout_v2.xacro" />
+	<xacro:include filename="$(find agilex_scout)/urdf/mobile_robot/scout_v2.urdf.xacro" />
 	<xacro:scout_v2 odometry_source="$(arg odometry_source)" load_gazebo="$(arg load_gazebo)" />
 
 	<xacro:unless value="$(arg simulation)">

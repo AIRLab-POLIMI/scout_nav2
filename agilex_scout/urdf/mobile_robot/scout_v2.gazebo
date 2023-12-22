@@ -2,7 +2,8 @@
 
 <!-- 
 Reference:
-    [1] https://answers.ros.org/question/246914/four-wheeled-skid-steering-in-gazebo-and-ros-using-gazebo-ros-control/
+    [1]
+https://answers.ros.org/question/246914/four-wheeled-skid-steering-in-gazebo-and-ros-using-gazebo-ros-control/
     [2] https://answers.ros.org/question/10119/gazebo-controller-for-skid-steering/
     [3] https://answers.ros.org/question/9640/rotation-error-in-gazebo-simulation/
     [4] https://www.youtube.com/watch?v=fuRAv6PDwdw 
@@ -14,16 +15,19 @@ Reference:
 		<color rgba="0.5 0.5 0.5 1" />
 	</material>
 
-	<!-- Actuator configurations -->
-	<!--
-	<xacro:include filename="$(find agilex_scout)/urdf/mobile_robot/scout_wheel.gazebo" />
-	<xacro:scout_wheel_transmission wheel_prefix="front_right" />
-	<xacro:scout_wheel_transmission wheel_prefix="front_left" />
-	<xacro:scout_wheel_transmission wheel_prefix="rear_left" />
-	<xacro:scout_wheel_transmission wheel_prefix="rear_right" />
--->
+	<!-- choice of the lidar type: laserscan or pointcloud -->
+	<xacro:arg name="lidar_type" default="3d" />
+	<xacro:property name="lidar_type" value="$(arg lidar_type)" />
 
-	<link name="lidar_2d">
+	<xacro:if value="${lidar_type == '2d'}">
+		<xacro:property name="lidar" value="lidar_2d" />
+	</xacro:if>
+	<xacro:if value="${lidar_type == '3d'}">
+		<xacro:property name="lidar" value="lidar_3d" />
+	</xacro:if>
+
+	<!-- LIDAR link and joint : cylinder on top of the robot center -->
+	<link name="${lidar}">
 		<collision>
 			<origin xyz="0 0 0" rpy="0 0 0" />
 			<geometry>
@@ -42,24 +46,25 @@ Reference:
 		<inertial>
 			<origin xyz="0 0 0" rpy="0 0 0" />
 			<mass value="0.1" />
-			<inertia ixx="${0.1 *(3*0.075*0.075 + 0.06*0.06)/ 12}" ixy="0" ixz="0" iyy="${0.1 *(3*0.075*0.075 + 0.06*0.06)/ 12}"
+			<inertia ixx="${0.1 *(3*0.075*0.075 + 0.06*0.06)/ 12}" ixy="0" ixz="0"
+				iyy="${0.1 *(3*0.075*0.075 + 0.06*0.06)/ 12}"
 				iyz="0" izz="${0.1*0.075*0.075 / 2}" />
 		</inertial>
 	</link>
 
-	<joint name="lidar_2d_joint" type="fixed">
+	<joint name="mobile_robot_to_${lidar}" type="fixed">
 		<parent link="mobile_robot_base_link" />
-		<child link="lidar_2d" />
+		<child link="${lidar}" />
 		<origin xyz="0.0 0 0.15" rpy="0 0 0" />
 	</joint>
 
-	<gazebo reference="lidar_2d">
+	<gazebo reference="${lidar}">
 		<material name="aluminum" />
 	</gazebo>
 
 	<link name="imu_frame" />
 
-	<joint name="imu_joint" type="fixed">
+	<joint name="mobile_robot_to_imu" type="fixed">
 		<parent link="mobile_robot_base_link" />
 		<child link="imu_frame" />
 		<origin xyz="0.0 0.0 0.08" rpy="0.0 0.0 0.0" />
@@ -75,12 +80,13 @@ Reference:
 		<plugin filename="ignition-gazebo-imu-system" name="ignition::gazebo::systems::Imu">
 		</plugin>
 
-		<plugin filename="ignition-gazebo-joint-state-publisher-system" name="ignition::gazebo::systems::JointStatePublisher">
+		<plugin filename="ignition-gazebo-joint-state-publisher-system"
+			name="ignition::gazebo::systems::JointStatePublisher">
 		</plugin>
 	</gazebo>
 	<!-- ........................... DIFFERENTIAL DRIVE PLUGIN ................................... -->
 
-	
+
 	<gazebo>
 		<plugin
 			filename="ignition-gazebo-diff-drive-system"
@@ -93,7 +99,8 @@ Reference:
 			<wheel_radius>${wheel_radius}</wheel_radius>
 			<topic>/scout/cmd_vel</topic>
 			<xacro:if value="${odometry_source == 'encoders'}">
-				<!-- NOTE: odometry source from wheel encoders not working for skid steering kinematis robot -->
+				<!-- NOTE: odometry source from wheel encoders not working for skid steering
+				kinematis robot -->
 				<odom_topic>/scout/odometry</odom_topic>
 				<odom_publish_frequency>50</odom_publish_frequency>
 				<tf_topic>/scout/tf</tf_topic>
@@ -140,13 +147,12 @@ Reference:
 		</gazebo>
 	</xacro:if>
 
-	<!-- ........................... 2D LIDAR config ................................... -->
-
+	<!-- ........................... 2D LIDAR = LASERSCAN ................................... -->
 
 	<gazebo reference="lidar_2d">
 		<sensor name='gpu_lidar' type='gpu_lidar'>
 			<topic>/scout/laser_scan</topic>
-			<update_rate>75</update_rate>
+			<update_rate>10</update_rate>
 			<ignition_frame_id>lidar_2d</ignition_frame_id>
 			<lidar>
 				<scan>
@@ -161,6 +167,44 @@ Reference:
 					<min>0.55</min>
 					<max>16</max>
 					<resolution>0.01</resolution>
+				</range>
+				<noise>
+					<type>gaussian</type>
+					<mean>0.0</mean>
+					<stddev>0.001</stddev>
+				</noise>
+			</lidar>
+			<alwaysOn>1</alwaysOn>
+			<visualize>true</visualize>
+		</sensor>
+	</gazebo>
+
+	<!-- ........................... 3D LIDAR = POINTCLOUD ................................... -->
+
+	<gazebo reference="lidar_3d">
+		<sensor name='gpu_lidar' type='gpu_lidar'>
+			<topic>/scout/pointcloud</topic>
+			<update_rate>10</update_rate>
+			<ignition_frame_id>lidar_3d</ignition_frame_id>
+			<lidar>
+				<scan>
+					<horizontal>
+						<samples>1024</samples>
+						<resolution>0.001</resolution>
+						<min_angle>-3.14</min_angle>
+						<max_angle>+3.14</max_angle>
+					</horizontal>
+					<vertical>
+						<samples>32</samples>
+						<resolution>0.001</resolution>
+						<min_angle>-0.393</min_angle>
+						<max_angle>0.393</max_angle>
+					</vertical>
+				</scan>
+				<range>
+					<min>0.5</min>
+					<max>50.0</max>
+					<resolution>0.005</resolution>
 				</range>
 				<noise>
 					<type>gaussian</type>

@@ -48,7 +48,7 @@ def launch_setup(context, *args, **kwargs):
 	# choose map to load depending on test environment
 	if LaunchConfiguration("simulation").perform(context) == "true":
 		# Gazebo simulation
-		params_file_name = "nav2_params.yaml"
+		params_file_name = "nav2_params_lidar3d.yaml"
 		map_file = "warehouse/map_slam.yaml"
 		use_sim_time = "true"
 	elif LaunchConfiguration("simulation").perform(context) == "false":

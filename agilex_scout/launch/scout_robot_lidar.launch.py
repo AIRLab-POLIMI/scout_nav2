@@ -54,8 +54,7 @@ def generate_launch_description():
 	scout_description_file = PathJoinSubstitution([
 		FindPackageShare("agilex_scout"),
 		"urdf",
-		"mobile_robot",
-		"scout_v2.xacro",
+		"robot.urdf.xacro",
 	])
 	scout_description_content = Command(
 		[
@@ -90,7 +89,7 @@ def generate_launch_description():
 		output='screen',
 		parameters=[{"use_sim_time": use_sim_time}, scout_description],
 		arguments=[scout_description_file],
-		#remappings=[('/robot_description', '/scout_description')]
+		remappings=[('/robot_description', '/scout/robot_description')]
 	)
 
 
@@ -102,10 +101,8 @@ def generate_launch_description():
             ])
         ]),
         launch_arguments={
-            # for a complete list of the launch arguments, take a look at ouster_ros/launch/sensor.launch.xml
-            #'sensor_hostname': "'os1-991942000600.local'",
+            # config/driver_params.yaml is the file containing the list of parameters used by the driver
             'viz': "false",
-			'timestamp_mode': 'TIME_FROM_ROS_TIME'
         }.items()
     )
 	
@@ -122,7 +119,7 @@ def generate_launch_description():
 			'angle_min': -pi,
 			'angle_max': pi,
 			'angle_increment': pi / 180.0 / 2.0,
-			'scan_time': 1/30, # 30Hz
+			'scan_time': 1/10, # 10Hz
 			'range_min': 1.0,
 			'range_max': 100.0,
 			'use_inf': True,

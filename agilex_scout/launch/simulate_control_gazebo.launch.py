@@ -1,7 +1,7 @@
 # python imports
 import os
-from os import environ
 from ament_index_python.packages import get_package_share_directory
+from math import pi
 
 # ros2 imports
 from launch import LaunchDescription
@@ -27,7 +27,7 @@ def generate_launch_description():
 		name="use_sim_time",
 		default_value="true",
 		description="Use simulation (Gazebo) clock if true",
-		choices=["true", "false"],
+		choices=["true"],
 	)
 
 	# where to get odometry information from
@@ -45,6 +45,13 @@ def generate_launch_description():
 		default_value="false",
 		description="Open RViz with model display configuration",
 		choices=["true", "false"],
+	)
+
+	lidar_type_arg = DeclareLaunchArgument(
+		name="lidar_type",
+		default_value="3d",
+		description="choose lidar type: pointcloud with 3d lidar or laserscan with 2d lidar",
+		choices=["3d", "2d"]
 	)
 
 	# include launch file with gazebo world
@@ -92,10 +99,10 @@ def generate_launch_description():
 			FindExecutable(name="xacro"),
 			" ",
 			scout_description_file,
-			" odometry_source:=",
-			LaunchConfiguration("odometry_source"),
+			" odometry_source:=", LaunchConfiguration("odometry_source"),
 			" load_gazebo:=true",
-			" simulation:=true"
+			" simulation:=true",
+			" lidar_type:=", LaunchConfiguration("lidar_type")
 		]
 	)
 	scout_description = {
@@ -108,7 +115,7 @@ def generate_launch_description():
 		package="robot_state_publisher",
 		executable="robot_state_publisher",
 		output="screen",
-		parameters=[{"use_sim_time": use_sim_time}, scout_description],
+		parameters=[use_sim_time, scout_description],
 		# arguments=[scout_description_file],
 		remappings=[
 			("/joint_states", "/scout/joint_states"),
@@ -152,7 +159,7 @@ def generate_launch_description():
 		package="rviz2",
 		executable="rviz2",
 		arguments=["-d", rviz2_file],
-		parameters=[scout_description],
+		parameters=[use_sim_time, scout_description],
 		condition=IfCondition(LaunchConfiguration("rviz")),
 	)
 
@@ -178,6 +185,7 @@ def generate_launch_description():
 			"--child-frame-id",
 			"map",
 		],
+		parameters=[use_sim_time]
 	)
 
 	# simulate robot remote control
@@ -189,11 +197,33 @@ def generate_launch_description():
 		prefix="xterm -e",
 	)
 
+	pointcloud_to_laserscan_node = Node(
+		package='pointcloud_to_laserscan',
+		executable='pointcloud_to_laserscan_node',
+		name='pointcloud_to_laserscan_node',
+		remappings=[('cloud_in', "/points"),
+					('scan', "/laser_scan")],
+		parameters=[{
+			'transform_tolerance': 0.05,
+			'min_height': 0.0,
+			'max_height': 2.0,
+			'angle_min': -pi,
+			'angle_max': pi,
+			'angle_increment': pi / 180.0 / 2.0,
+			'scan_time': 1/10, # 10Hz
+			'range_min': 0.5,
+			'range_max': 50.0,
+			'use_inf': True,
+		}],
+		condition=IfCondition(PythonExpression(["'", LaunchConfiguration("lidar_type"), "'", " == '3d'"]))
+	)	
+
 	return LaunchDescription(
 		[
 			use_sim_time_arg,
 			odometry_source_arg,
 			rviz_arg,
+			lidar_type_arg,
 			static_tf,
 			robot_state_publisher_node,
 			warehouse_world_launch,
@@ -201,5 +231,6 @@ def generate_launch_description():
 			bridge,
 			rviz2_node,
 			teleop_keyboard_node,
+			pointcloud_to_laserscan_node
 		]
 	)
