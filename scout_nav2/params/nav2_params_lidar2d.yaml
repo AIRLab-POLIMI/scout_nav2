@@ -50,18 +50,22 @@ bt_navigator:
         global_frame: map
         robot_base_frame: mobile_robot_base_link
         odom_topic: /odometry
-        bt_loop_duration: 10
-        default_server_timeout: 20
-        action_server_result_timeout: 900.0
+        bt_loop_duration: 10 # ms
+        default_server_timeout: 20 # ms
+        wait_for_server_timeout: 1000 # ms
+        action_server_result_timeout: 60.0 # s
+        transform_tolerance: 0.1 # s
         navigators: ["navigate_to_pose", "navigate_through_poses"]
         navigate_to_pose:
             plugin: "nav2_bt_navigator/NavigateToPoseNavigator"
         navigate_through_poses:
             plugin: "nav2_bt_navigator/NavigateThroughPosesNavigator"
-        # 'default_nav_through_poses_bt_xml' and 'default_nav_to_pose_bt_xml' are use defaults:
-        # nav2_bt_navigator/navigate_to_pose_w_replanning_and_recovery.xml
-        # nav2_bt_navigator/navigate_through_poses_w_replanning_and_recovery.xml
-        # They can be set here or via a RewrittenYaml remap from a parent launch file to Nav2.
+        # default behavior tree definitions
+        #default_nav_to_pose_bt_xml: $(find-pkg-share nav2_bt_navigator)/behavior_trees/navigate_to_pose_w_replanning_and_recovery.xml
+        default_nav_through_poses_bt_xml: $(find-pkg-share nav2_bt_navigator)/behavior_trees/navigate_through_poses_w_replanning_and_recovery.xml
+        # custom behavior tree definition
+        default_nav_to_pose_bt_xml: $(find-pkg-share scout_nav2)/params/bt_nav2pose.xml
+        
         plugin_lib_names:
             - nav2_compute_path_to_pose_action_bt_node
             - nav2_compute_path_through_poses_action_bt_node
@@ -143,42 +147,64 @@ controller_server:
             xy_goal_tolerance: 0.25
             yaw_goal_tolerance: 0.25
 
-        # MPPI controller parameters
-        # link to docs and parameters docummentation:
-        # https://navigation.ros.org/configuration/packages/configuring-mppic.html
         FollowPath:
-            plugin: "nav2_mppi_controller::MPPIController"
-            time_steps: 60
+            # combination of 2 local planners: rotation shim controller and MPPI controller
+            plugin: "nav2_rotation_shim_controller::RotationShimController"
+            primary_controller: "nav2_mppi_controller::MPPIController"
+
+            # Rotation shim controller parameters
+            # Backup controller for rotation in place when angular heading error is larger than threshold
+            # https://navigation.ros.org/configuration/packages/configuring-rotation-shim-controller.html
+            angular_dist_threshold: 0.2 # (radians) threshold for switching to rotation in place
+            forward_sampling_distance: 0.5
+            rotate_to_heading_angular_vel: 1.8
+            max_angular_accel: 2.0
+            simulate_ahead_time: 3.0
+
+            # MPPI Controller parameters: local planner (controller)
+            # https://navigation.ros.org/configuration/packages/configuring-mppic.html
+            time_steps: 200
             model_dt: 0.05
             batch_size: 1000
             vx_std: 0.2
             vy_std: 0.2
             wz_std: 0.4
             vx_max: 0.5
-            vx_min: -0.35
+            vx_min: -0.5
             vy_max: 0.5
             wz_max: 1.9
             iteration_count: 1
             temperature: 0.3
             gamma: 0.015
-            motion_model: "DiffDrive"
-            visualize: false
+            visualize: False # True for debugging only (will degrade performance)
             retry_attempt_limit: 1
             regenerate_noises: false
 
-            # trajectory visualization
+            # trajectory visualization parameters (when visualize is true)
             TrajectoryVisualizer:
-                trajectory_step: 5
-                time_step: 3
+                trajectory_step: 20
+                time_step: 5
             # path handler
             transform_tolerance: 0.1
             prune_distance: 1.5
-            enforce_path_inversion: false
+            enforce_path_inversion: true
             inversion_xy_tolerance: 0.2
             inversion_yaw_tolerance: 0.4
-            #AckermannConstraints:
-            #    min_turning_r: 0.2
-            critics: ["ConstraintCritic", "ObstaclesCritic", "GoalCritic", "GoalAngleCritic", "PathAlignCritic", "PathFollowCritic", "PathAngleCritic", "PreferForwardCritic"]
+            # Ackermann motion model used by MPPI controller in contrast to in-place rotation shim controller
+            motion_model: "Ackermann"
+            AckermannConstraints:
+                min_turning_r: 0.2
+            critics: [
+                    "ConstraintCritic", #This critic penalizes trajectories that have components outside of the set dynamic or kinematic constraints
+                    "ObstaclesCritic", #This critic incentivizes navigating away from obstacles and critical collisions using either a circular robot point-check or full SE2 footprint check.
+                    "GoalCritic", #This critic incentivizes navigating spatially towards the goal when in reasonable proximity to goal
+                    "GoalAngleCritic", #This critic incentivizes navigating to achieve the angle of the goal posewhen in reasonable proximity to goal
+                    "PathAlignCritic", #This critic incentivizes aligning with the global path, if relevant. It does not implement path following behavior.
+                    "PathFollowCritic", #This critic incentivizes making progress along the path. This is what drives the robot forward along the path.
+                    "PathAngleCritic", #This critic penalizes trajectories at a high relative angle to the path. This helps the robot make sharp turns when necessary due to large accumulated angular errors.
+                    "PreferForwardCritic", #This critic incentivizes moving in the forward direction, rather than reversing.
+                    #"TwirlingCritic" # This critic penalizes unnecessary ‘twisting’ with holonomic vehicles. It adds a constraint on the rotation angle to keep it consistent.
+                ]
             ConstraintCritic:
                 enabled: true
                 cost_power: 1
@@ -196,7 +222,7 @@ controller_server:
             PreferForwardCritic:
                 enabled: true
                 cost_power: 1
-                cost_weight: 0.5
+                cost_weight: 1.0
                 threshold_to_consider: 0.5
             ObstaclesCritic:
                 enabled: true
@@ -205,37 +231,38 @@ controller_server:
                 critical_weight: 20.0
                 consider_footprint: true
                 collision_cost: 10000.0
-                collision_margin_distance: 0.1
-                near_goal_distance: 0.5
-                #inflation_radius: 0.55 # (only in Humble)
-                #cost_scaling_factor: 10.0 # (only in Humble)
+                collision_margin_distance: 0.5
+                near_goal_distance: 1.0
+                #inflation_radius: 0.6 # (only in Humble)
+                #cost_scaling_factor: 2.0 # (only in Humble)
             PathAlignCritic:
                 enabled: true
                 cost_power: 1
-                cost_weight: 14.0
+                cost_weight: 20.0
                 max_path_occupancy_ratio: 0.05
                 trajectory_point_step: 3
-                threshold_to_consider: 0.5
-                offset_from_furthest: 20
-                use_path_orientations: false
+                threshold_to_consider: 1.0
+                offset_from_furthest: 30
+                use_path_orientations: true
             PathFollowCritic:
                 enabled: true
                 cost_power: 1
-                cost_weight: 5.0
-                offset_from_furthest: 5
+                cost_weight: 4.0
+                offset_from_furthest: 6
                 threshold_to_consider: 1.4
             PathAngleCritic:
                 enabled: true
                 cost_power: 1
-                cost_weight: 2.0
+                cost_weight: 4.0
                 offset_from_furthest: 4
                 threshold_to_consider: 0.5
-                max_angle_to_furthest: 1.0
-                mode: 0
-            # TwirlingCritic:
-            #   enabled: true
-            #   twirling_cost_power: 1
-            #   twirling_cost_weight: 10.0
+                max_angle_to_furthest: 0.7
+                mode: 2
+            TwirlingCritic:
+                enabled: true
+                twirling_cost_power: 1
+                twirling_cost_weight: 10.0
+
             
 local_costmap:
     local_costmap:
@@ -326,8 +353,6 @@ global_costmap:
                 plugin: "nav2_costmap_2d::InflationLayer"
                 cost_scaling_factor: 2.0
                 inflation_radius: 0.6
-                inflate_unknown: true
-                inflate_around_unknown: true
             always_send_full_costmap: True
 
 map_saver:
@@ -361,10 +386,10 @@ planner_server:
             analytic_expansion_ratio: 3.5 # The ratio to attempt analytic expansions during search for final approach.
             analytic_expansion_max_length: 3.0 # For Hybrid/Lattice nodes: The maximum length of the analytic expansion to be considered valid to prevent unsafe shortcutting
             minimum_turning_radius: 0.2 # minimum turning radius in m of path / vehicle
-            reverse_penalty: 1.4 # Penalty to apply if motion is reversing, must be => 1
+            reverse_penalty: 2.0 # Penalty to apply if motion is reversing, must be => 1
             change_penalty: 0.0 # Penalty to apply if motion is changing directions (L to R), must be >= 0
             non_straight_penalty: 1.2 # Penalty to apply if motion is non-straight, must be => 1
-            cost_penalty: 1.5 # Penalty to apply to higher cost areas when adding into the obstacle map dynamic programming distance expansion heuristic. This drives the robot more towards the center of passages. A value between 1.3 - 3.5 is reasonable.
+            cost_penalty: 2.0 # Penalty to apply to higher cost areas when adding into the obstacle map dynamic programming distance expansion heuristic. This drives the robot more towards the center of passages. A value between 1.3 - 3.5 is reasonable.
             retrospective_penalty: 0.015
             lookup_table_size: 20.0 # Size of the dubin/reeds-sheep distance window to cache, in meters.
             cache_obstacle_heuristic: false # Cache the obstacle map dynamic programming distance expansion heuristic between subsiquent replannings of the same goal location. Dramatically speeds up replanning performance (40x) if costmap is largely static.
@@ -397,8 +422,8 @@ smoother_server:
             minimum_turning_radius: 0.0 # minimum turning radius the robot can perform. Can be set to 0.0 (or w_curve can be set to 0.0 with the same effect) for diff-drive/holonomic robots
             w_curve: 30.0 # weight to enforce minimum_turning_radius
             w_dist: 0.0 # weight to bind path to original as optional replacement for cost weight
-            w_smooth: 2000000.0 # weight to maximize smoothness of path
-            w_cost: 0.015 # weight to steer robot away from collision and cost
+            w_smooth: 200.0 # weight to maximize smoothness of path
+            w_cost: 500.0 # weight to steer robot away from collision and cost
 
             # Parameters used to improve obstacle avoidance near cusps (forward/reverse movement changes)
             w_cost_cusp_multiplier: 3.0 # option to use higher weight during forward/reverse direction change which is often accompanied with dangerous rotations
@@ -437,9 +462,9 @@ behavior_server:
         robot_base_frame: mobile_robot_base_link
         transform_tolerance: 0.1
         simulate_ahead_time: 2.0
-        max_rotational_vel: 1.0
-        min_rotational_vel: 0.4
-        rotational_acc_lim: 3.2
+        max_rotational_vel: 0.8
+        min_rotational_vel: 0.2
+        rotational_acc_lim: 2.0
 
 waypoint_follower:
     ros__parameters:
@@ -552,44 +577,40 @@ collision_monitor:
         base_shift_correction: True
         stop_pub_timeout: 2.0
         use_realtime_priority: false
-        polygons:
-            ["PolygonStop", "PolygonSlow", "PolygonLimit", "FootprintApproach"]
-        PolygonStop:
+        
+        polygons: ["FootprintStop", "FootprintSlowdown", "FootprintApproach"]
+        FootprintStop:
+            # Define a zone and a point threshold. If min_points or more obstacle points appear inside this area, stop the robot until the obstacles will disappear.
             type: "polygon"
-            points: [0.50, 0.40, 0.50, -0.40, -0.50, -0.40, -0.50, 0.40]
+            points: [0.48, 0.38, 0.48, -0.38, -0.48, -0.38, -0.48, 0.38]
             action_type: "stop"
             min_points: 4 # max_points: 3 for Humble
             visualize: True
-            polygon_pub_topic: "polygon_stop"
+            polygon_pub_topic: "/polygon_stop"
             enabled: True
-        PolygonSlow:
-            type: "polygon"
-            points: [0.60, 0.50, 0.60, -0.50, -0.60, -0.50, -0.60, 0.50]
-            action_type: "slowdown"
-            min_points: 4 # max_points: 3 for Humble
-            slowdown_ratio: 0.3
-            visualize: True
-            polygon_pub_topic: "polygon_slowdown"
-            enabled: True
-        PolygonLimit:
+
+        FootprintSlowdown:
+            # Define a zone around the robot and slow the maximum speed for a slowdown_ratio, if min_points or more points will appear inside the area.
             type: "polygon"
             points: [0.65, 0.55, 0.65, -0.55, -0.65, -0.55, -0.65, 0.55]
-            action_type: "limit"
+            action_type: "slowdown"
             min_points: 4 # max_points: 3 for Humble
-            linear_limit: 0.4
-            angular_limit: 0.5
+            slowdown_ratio: 0.5
             visualize: True
-            polygon_pub_topic: "polygon_limit"
+            polygon_pub_topic: "/polygon_slowdown"
             enabled: True
+
         FootprintApproach:
+            # Using the current robot speed, estimate the time to collision to sensor data. The robot will slow such that it is now at least time_before_collision seconds to collision.
             type: "polygon"
             action_type: "approach"
-            footprint_topic: "local_costmap/published_footprint"
+            points: [0.70, 0.60, 0.70, -0.60, -0.70, -0.60, -0.70, 0.60]
             time_before_collision: 2.0
             simulation_time_step: 0.02
             min_points: 6 # max_points: 5 for Humble
-            visualize: False
-            enabled: True
+            visualize: True
+            enabled: False
+            
         observation_sources: ["scan"]
         scan:
             source_timeout: 0.2

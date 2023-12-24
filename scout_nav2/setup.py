@@ -13,9 +13,10 @@ setup(
             ['resource/' + package_name]),
         ('share/' + package_name, ['package.xml']),
 		(os.path.join('share', package_name, "launch"), glob('launch/*.launch.py')),
-		(os.path.join('share', package_name, "maps/warehouse"), glob('maps/warehouse/*')),
-        (os.path.join('share', package_name, "maps/airlab"), glob('maps/airlab/*')),
-		(os.path.join('share', package_name, "params"), glob('params/*.yaml')),
+		(os.path.join('share', package_name, "maps/warehouse"), glob('maps/warehouse/*')), # aws warehouse simulation maps
+        (os.path.join('share', package_name, "maps/airlab"), glob('maps/airlab/*')), # airlab maps
+		(os.path.join('share', package_name, "params"), glob('params/*.yaml')), # nav2 parameters
+		(os.path.join('share', package_name, "params"), glob('params/*.xml')), # behavior trees
 		(os.path.join('share', package_name, "rviz"), glob('rviz/*.rviz')),
     ],
     install_requires=['setuptools'],
