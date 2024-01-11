@@ -54,7 +54,7 @@ def launch_setup(context, *args, **kwargs):
 	elif LaunchConfiguration("simulation").perform(context) == "false":
 		# Real robot
 		params_file_name = "nav2_params_scout.yaml"
-		map_file = "airlab/map_lidar3d.yaml"
+		map_file = "airlab/map_lidar3d_v2.yaml"
 		use_sim_time = "false"
 
 
