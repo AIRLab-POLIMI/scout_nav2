@@ -11,7 +11,7 @@ https://answers.ros.org/question/246914/four-wheeled-skid-steering-in-gazebo-and
 
 <robot xmlns:xacro="http://ros.org/wiki/xacro" name="scout_v2">
 
-	<material name="aluminum">
+	<material name="light_grey">
 		<color rgba="0.5 0.5 0.5 1" />
 	</material>
 
@@ -40,7 +40,7 @@ https://answers.ros.org/question/246914/four-wheeled-skid-steering-in-gazebo-and
 			<geometry>
 				<cylinder length="0.06" radius="0.075" />
 			</geometry>
-			<material name="aluminum" />
+			<material name="light_grey" />
 		</visual>
 
 		<inertial>
@@ -59,7 +59,7 @@ https://answers.ros.org/question/246914/four-wheeled-skid-steering-in-gazebo-and
 	</joint>
 
 	<gazebo reference="${lidar}">
-		<material name="aluminum" />
+		<material name="light_grey" />
 	</gazebo>
 
 	<link name="imu_frame" />

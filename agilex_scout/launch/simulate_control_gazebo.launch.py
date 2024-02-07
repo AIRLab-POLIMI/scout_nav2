@@ -119,7 +119,8 @@ def generate_launch_description():
 		# arguments=[scout_description_file],
 		remappings=[
 			("/joint_states", "/scout/joint_states"),
-			("/robot_description", "/scout/robot_description"),
+			# remappings robot description required only when mobile robot is loaded with robotic arm in gazebo environment
+		#	("/robot_description", "/scout/robot_description"),
 		],
 	)
 
@@ -132,7 +133,7 @@ def generate_launch_description():
 			"-name",
 			"scout_v2",
 			"-topic",
-			"/scout/robot_description",
+			"/robot_description",
 			"-x",
 			"0",
 			"-y",
@@ -206,7 +207,7 @@ def generate_launch_description():
 		parameters=[{
 			'transform_tolerance': 0.05,
 			'min_height': 0.0,
-			'max_height': 2.0,
+			'max_height': 1.0,
 			'angle_min': -pi,
 			'angle_max': pi,
 			'angle_increment': pi / 180.0 / 2.0,

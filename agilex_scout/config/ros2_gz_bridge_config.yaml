@@ -26,7 +26,6 @@
   gz_type_name: "ignition.msgs.Pose_V"
   direction: GZ_TO_ROS
 
-
 # lidar 2d scan
 - ros_topic_name: "/laser_scan"
   gz_topic_name: "/scout/laser_scan"
@@ -63,10 +62,4 @@
   gz_type_name: "ignition.msgs.IMU"
   direction: GZ_TO_ROS
 
-# pointcloud 3d example
-# "/kinect_camera/points@sensor_msgs/msg/PointCloud2[ignition.msgs.PointCloudPacked",
-#- ros_topic_name: "/kinect_camera/points"
-#  gz_topic_name: "/scout/kinect_camera/points"
-#  ros_type_name: "sensor_msgs/msg/PointCloud2"
-#  gz_type_name: "ignition.msgs.PointCloudPacked"
-#  direction: GZ_TO_ROS
+
