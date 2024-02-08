@@ -30,16 +30,14 @@ from nav2_common.launch import RewrittenYaml, ReplaceString
 
 def generate_launch_description():
     # Get the launch directory
-    bringup_dir = os.path.join(
-        get_package_share_directory("nav2_bringup_custom"))
+    bringup_dir = os.path.join(get_package_share_directory("nav2_bringup_custom"))
     bringup_launch = os.path.join(bringup_dir, "launch")
-    localization_launcher_py = os.path.join(
-        bringup_launch, 'localization_launch.py')
-    navigation_launcher_py = os.path.join(
-        bringup_launch, 'navigation_launch.py')
+
+    # launch files
+    localization_launcher_py = os.path.join(bringup_launch, 'localization_launch.py')
+    navigation_launcher_py = os.path.join(bringup_launch, 'navigation_launch.py')
     slam_launcher_py = os.path.join(bringup_launch, 'slam_launch.py')
-    slam_localization_launcher_py = os.path.join(
-        bringup_launch, 'slam_localization_launch.py')
+    slam_localization_launcher_py = os.path.join(bringup_launch, 'slam_localization_launch.py')
 
     # Create the launch configuration variables
     namespace = LaunchConfiguration('namespace')
@@ -168,7 +166,7 @@ def generate_launch_description():
                               'use_respawn': use_respawn,
                               'params_file': params_file}.items()
         ),
-        
+
         # Launch SLAM Toolbox for localization only
         IncludeLaunchDescription(
             PythonLaunchDescriptionSource(slam_localization_launcher_py),

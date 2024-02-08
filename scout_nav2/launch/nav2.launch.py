@@ -14,7 +14,7 @@ from launch.conditions import IfCondition, UnlessCondition
 def generate_launch_description():
     slam_arg = DeclareLaunchArgument(
         name="slam",
-        default_value="True",
+        default_value="False",
         description="Launch SLAM or launch localization and navigation",
         choices=["True", "False"],
     )
@@ -47,31 +47,46 @@ def launch_setup(context, *args, **kwargs):
     # launch nav2 with convenient prepared launch files
     # using specialized version of nav2 bringup to account for collision monitor parameters
     nav2_bringup_dir = get_package_share_directory("nav2_bringup_custom")
-    nav2_launch_file = os.path.join(
-        nav2_bringup_dir, "launch", "bringup_launch.py")
+    nav2_launch_file = os.path.join(nav2_bringup_dir, "launch", "bringup_launch.py")
     scout_nav2_dir = get_package_share_directory("scout_nav2")
 
     # full configuration parameters file
     # choose map to load depending on test environment
     if LaunchConfiguration("simulation").perform(context) == "true":
         # Gazebo simulation
-        params_file_name = "nav2_params_lidar3d.yaml"
-        map_file = "warehouse/map_slam.yaml"
+        map_file = "warehouse/map_slam_v2.yaml"
         use_sim_time = "true"
 
-        if (LaunchConfiguration("localization").perform(context) == "slam_toolbox"):
-            # AMCL localization
-            params_file_name = "nav2_params_slam_localization.yaml"
+        if (LaunchConfiguration("slam").perform(context) == "True"):
+            # SLAM for localization and mapping
+            params_file_name = "sim_lidar3d_acml.yaml"
+            # ignore localization argument
+        else:
+            # performing localization and navigation
+            if (LaunchConfiguration("localization").perform(context) == "slam_toolbox"):
+                # SLAM toolbox localization
+                params_file_name = "sim_slam_localization.yaml"
+            else:
+                # AMCL localization
+                params_file_name = "sim_lidar3d_acml.yaml"
 
     elif LaunchConfiguration("simulation").perform(context) == "false":
         # Real robot
-        params_file_name = "nav2_params_scout.yaml"
         map_file = "airlab/map_lidar3d_v2.yaml"
         use_sim_time = "false"
 
-        if (LaunchConfiguration("localization").perform(context) == "amcl"):
-            # TODO: add param file with slam localization
-            params_file_name = "nav2_params_slam_localization_scout.yaml"
+        if (LaunchConfiguration("slam").perform(context) == "True"):
+            # SLAM for localization and mapping
+            params_file_name = "nav2_params_scout.yaml"
+            # ignore localization argument
+        else:
+            # performing localization and navigation
+            if (LaunchConfiguration("localization").perform(context) == "amcl"):
+                # AMCL localization
+                params_file_name = "nav2_params_scout.yaml"  # TODO: change old filename
+            else:
+                # SLAM toolbox localization
+                params_file_name = "scout_slam_localization.yaml"
 
     # parameters file path
     nav2_params_file = os.path.join(scout_nav2_dir, "params", params_file_name)
@@ -87,8 +102,7 @@ def launch_setup(context, *args, **kwargs):
             "slam": LaunchConfiguration("slam"),  # slam activated
             "map": "",  # no map,
         }.items(),
-        condition=IfCondition(PythonExpression(
-            [LaunchConfiguration("slam"), " == True"])),
+        condition=IfCondition(PythonExpression([LaunchConfiguration("slam"), " == True"])),
     )
 
     # if slam is disabled --> localization + navigation
@@ -100,14 +114,12 @@ def launch_setup(context, *args, **kwargs):
             # localization + navigation
             "slam": LaunchConfiguration("slam"),
             "map": map_yaml_file,  # map file
-            # amcl or slam_toolbox
-            "localization": LaunchConfiguration("localization")
+            "localization": LaunchConfiguration("localization") # amcl or slam_toolbox
         }.items(),
-        condition=IfCondition(PythonExpression(
-            [LaunchConfiguration("slam"), " == False"])),
+        condition=IfCondition(PythonExpression([LaunchConfiguration("slam"), " == False"])),
     )
 
-# static transform from world to map
+    # static transform from world to map
     static_tf = Node(
         package="tf2_ros",
         executable="static_transform_publisher",
@@ -132,8 +144,7 @@ def launch_setup(context, *args, **kwargs):
     )
 
     # launch rviz
-    rviz_default_config_file = os.path.join(
-        scout_nav2_dir, "rviz", "nav2.rviz")
+    rviz_default_config_file = os.path.join(scout_nav2_dir, "rviz", "nav2.rviz")
     rviz_node = Node(
         package="rviz2",
         executable="rviz2",

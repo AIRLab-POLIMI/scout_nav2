@@ -70,18 +70,6 @@ def generate_launch_description():
 		"robot_description": ParameterValue(scout_description_content, value_type=str)
 	}
 
-	""" not needed because scout_base package does not publish the wheels joint states
-	scout_joint_state_publisher_node = Node(
-		package='joint_state_publisher',
-		executable='joint_state_publisher',
-		name='joint_state_publisher_scout',
-		output='screen',
-		parameters=[{"use_sim_time": use_sim_time}, scout_description],
-		arguments=[scout_description_file],
-		remappings=[('/robot_description', '/scout_description')]
-	)
-	"""
-
 	scout_robot_state_publisher_node = Node(
 		package='robot_state_publisher',
 		executable='robot_state_publisher',
@@ -89,7 +77,7 @@ def generate_launch_description():
 		output='screen',
 		parameters=[{"use_sim_time": use_sim_time}, scout_description],
 		arguments=[scout_description_file],
-		remappings=[('/robot_description', '/scout/robot_description')]
+		#remappings=[('/robot_description', '/scout/robot_description')]
 	)
 
 
@@ -115,7 +103,7 @@ def generate_launch_description():
 		parameters=[{
 			'transform_tolerance': 0.05,
 			'min_height': -0.5,
-			'max_height': 1.5,
+			'max_height': 1.0,
 			'angle_min': -pi,
 			'angle_max': pi,
 			'angle_increment': pi / 180.0 / 2.0,

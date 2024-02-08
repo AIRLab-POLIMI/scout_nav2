@@ -38,11 +38,9 @@ def generate_launch_description():
     # Variables
     lifecycle_nodes = ['map_saver']
 
-    # NOTE: custom nav2 bringup package
+    # NOTE: localization only launch file with slam toolbox
     slam_toolbox_dir = get_package_share_directory('slam_toolbox')
-    # NOTE: localization starting launch file
-    slam_launch_file = os.path.join(
-        slam_toolbox_dir, 'launch', 'localization_launch.py')
+    slam_launch_file = os.path.join(slam_toolbox_dir, 'launch', 'localization_launch.py')
 
     # Create our own temporary YAML files that include substitutions
     configured_params = ParameterFile(
@@ -57,30 +55,36 @@ def generate_launch_description():
     declare_namespace_cmd = DeclareLaunchArgument(
         'namespace',
         default_value='',
-        description='Top-level namespace')
+        description='Top-level namespace'
+    )
 
     declare_params_file_cmd = DeclareLaunchArgument(
         'params_file',
         default_value=os.path.join(
             slam_toolbox_dir, 'config', 'mapper_params_localization.yaml'),
-        description='Full path to the ROS2 parameters file to use for all launched nodes')
+        description='Full path to the ROS2 parameters file to use for all launched nodes'
+    )
 
     declare_use_sim_time_cmd = DeclareLaunchArgument(
         'use_sim_time',
         default_value='True',
-        description='Use simulation (Gazebo) clock if true')
+        description='Use simulation (Gazebo) clock if true'
+    )
 
     declare_autostart_cmd = DeclareLaunchArgument(
         'autostart', default_value='True',
-        description='Automatically startup the nav2 stack')
+        description='Automatically startup the nav2 stack'
+    )
 
     declare_use_respawn_cmd = DeclareLaunchArgument(
         'use_respawn', default_value='False',
-        description='Whether to respawn if a node crashes. Applied when composition is disabled.')
+        description='Whether to respawn if a node crashes. Applied when composition is disabled.'
+    )
 
     declare_log_level_cmd = DeclareLaunchArgument(
         'log_level', default_value='info',
-        description='log level')
+        description='log level'
+    )
 
     # Nodes launching commands
 
@@ -108,13 +112,13 @@ def generate_launch_description():
     # If the provided param file doesn't have slam_toolbox params, we must remove the 'params_file'
     # LaunchConfiguration, or it will be passed automatically to slam_toolbox and will not load
     # the default file
-    has_slam_toolbox_params = HasNodeParams(source_file=params_file,
-                                            node_name='slam_toolbox')
+    has_slam_toolbox_params = HasNodeParams(source_file=params_file, node_name='slam_toolbox')
 
     start_slam_toolbox_localization_cmd = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(slam_launch_file),
         launch_arguments={'use_sim_time': use_sim_time}.items(),
-        condition=UnlessCondition(has_slam_toolbox_params))
+        condition=UnlessCondition(has_slam_toolbox_params)
+    )
 
     start_slam_toolbox_localization_cmd_with_params = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(slam_launch_file),
@@ -122,7 +126,8 @@ def generate_launch_description():
             'use_sim_time': use_sim_time,
             'slam_params_file': params_file,
         }.items(),
-        condition=IfCondition(has_slam_toolbox_params))
+        condition=IfCondition(has_slam_toolbox_params)
+    )
 
     ld = LaunchDescription()
 
