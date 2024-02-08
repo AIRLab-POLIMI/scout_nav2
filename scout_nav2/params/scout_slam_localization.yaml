@@ -8,16 +8,18 @@ bt_navigator:
         wait_for_server_timeout: 1000 # ms
         action_server_result_timeout: 60.0 # s
         transform_tolerance: 0.1 # s
-        navigators: ["navigate_to_pose", "navigate_through_poses"]
-        navigate_to_pose:
-            plugin: "nav2_bt_navigator/NavigateToPoseNavigator"
-        navigate_through_poses:
-            plugin: "nav2_bt_navigator/NavigateThroughPosesNavigator"
+
         # default behavior tree definitions
         #default_nav_to_pose_bt_xml: $(find-pkg-share nav2_bt_navigator)/behavior_trees/navigate_to_pose_w_replanning_and_recovery.xml
         default_nav_through_poses_bt_xml: $(find-pkg-share nav2_bt_navigator)/behavior_trees/navigate_through_poses_w_replanning_and_recovery.xml
         # custom behavior tree definition
         default_nav_to_pose_bt_xml: $(find-pkg-share scout_nav2)/params/bt_nav2pose.xml
+
+        navigators: ["navigate_to_pose", "navigate_through_poses"]
+        navigate_to_pose:
+            plugin: "nav2_bt_navigator/NavigateToPoseNavigator"
+        navigate_through_poses:
+            plugin: "nav2_bt_navigator/NavigateThroughPosesNavigator"
 
         plugin_lib_names:
             - nav2_compute_path_to_pose_action_bt_node
@@ -156,7 +158,7 @@ controller_server:
                     "PathFollowCritic", #This critic incentivizes making progress along the path. This is what drives the robot forward along the path.
                     "PathAngleCritic", #This critic penalizes trajectories at a high relative angle to the path. This helps the robot make sharp turns when necessary due to large accumulated angular errors.
                     "PreferForwardCritic", #This critic incentivizes moving in the forward direction, rather than reversing.
-                    "TwirlingCritic" # This critic penalizes unnecessary ‘twisting’ with holonomic vehicles. It adds a constraint on the rotation angle to keep it consistent.
+                    "TwirlingCritic", # This critic penalizes unnecessary ‘twisting’ with holonomic vehicles. It adds a constraint on the rotation angle to keep it consistent.
                 ]
             ConstraintCritic:
                 enabled: true
@@ -214,7 +216,6 @@ controller_server:
                 twirling_cost_power: 1
                 twirling_cost_weight: 10.0
 
-
 local_costmap:
     local_costmap:
         ros__parameters:
@@ -247,23 +248,23 @@ local_costmap:
                 mark_threshold: 0
                 observation_sources: pointcloud
                 combination_method: 1
-                pointcloud:  # no frame set, uses frame from message
+                pointcloud: # no frame set, uses frame from message
                     topic: /ouster/points
                     max_obstacle_height: 1.5
                     min_obstacle_height: 0.1
                     obstacle_max_range: 12.0
                     obstacle_min_range: 0.0
                     raytrace_max_range: 15.0
-                    raytrace_min_range: 0.5
+                    raytrace_min_range: 0.0
                     clearing: True
                     marking: True
                     data_type: "PointCloud2"
-          
+
             # denoising costmap by removing outlier points in groups less big than the minimum
             denoise_layer:
                 plugin: "nav2_costmap_2d::DenoiseLayer"
                 enabled: true
-                minimal_group_size: 4
+                minimal_group_size: 5
                 group_connectivity_type: 8
 
             inflation_layer:
@@ -284,12 +285,12 @@ global_costmap:
             footprint: "[ [0.45, 0.35], [0.45, -0.35], [-0.45, -0.35], [-0.45, 0.35] ]"
             footprint_padding: 0.02
             resolution: 0.05
-            width: 12
-            height: 12
+            width: 16
+            height: 16
             track_unknown_space: true
             lethal_cost_threshold: 100
 
-            plugins: ["static_layer", "voxel_layer", "denoise_layer", "inflation_layer"]
+            plugins: ["static_layer", "denoise_layer", "inflation_layer"]
             static_layer:
                 plugin: "nav2_costmap_2d::StaticLayer"
                 map_subscribe_transient_local: True
@@ -298,36 +299,11 @@ global_costmap:
                 transform_tolerance: 0.1
                 map_topic: /map
 
-            # volumetric obstacles costmap
-            voxel_layer:
-                plugin: "nav2_costmap_2d::VoxelLayer"
-                enabled: True
-                footprint_clearing_enabled: True
-                publish_voxel_map: False
-                origin_z: 0.0
-                z_resolution: 0.05
-                z_voxels: 16
-                unknown_threshold: 15
-                mark_threshold: 0
-                observation_sources: pointcloud
-                combination_method: 1
-                pointcloud:  # no frame set, uses frame from message
-                    topic: /ouster/points
-                    max_obstacle_height: 1.5
-                    min_obstacle_height: 0.1
-                    obstacle_max_range: 12.0
-                    obstacle_min_range: 0.0
-                    raytrace_max_range: 15.0
-                    raytrace_min_range: 0.5
-                    clearing: True
-                    marking: True
-                    data_type: "PointCloud2"
-
             # denoising costmap by removing outlier points in groups less big than the minimum
             denoise_layer:
                 plugin: "nav2_costmap_2d::DenoiseLayer"
                 enabled: true
-                minimal_group_size: 4
+                minimal_group_size: 5
                 group_connectivity_type: 8
 
             inflation_layer:
@@ -491,8 +467,8 @@ slam_toolbox:
 
         # localization using posegraph map data: filename without extension, full path required
         #NOTE: currently no way of setting the map file name from the launch file
-        map_file_name: /home/airlab/simon/scout_nav2/src/scout_nav2/maps/airlab/airlab_v2 # full path
-        map_start_pose: [0.0, 0.0, 0.0] # substitute with posegraph map start pose
+        map_file_name: /home/airlab/simon/scout_nav2/src/scout_nav2/maps/airlab/airlab # full path
+        map_start_pose: [0.0, 0.0, 0.0] # use rviz2 set_initial_pose to set the starting pose
 
         debug_logging: false
         throttle_scans: 1
@@ -509,8 +485,8 @@ slam_toolbox:
         # General Parameters
         use_scan_matching: true
         use_scan_barycenter: true
-        minimum_travel_distance: 0.2 # default 0.5
-        minimum_travel_heading: 0.2 # default 0.5
+        minimum_travel_distance: 0.2
+        minimum_travel_heading: 0.2
         scan_buffer_size: 10
         scan_buffer_maximum_scan_distance: 10.0
         link_match_minimum_response_fine: 0.1
@@ -555,7 +531,7 @@ collision_monitor:
         base_shift_correction: True
         stop_pub_timeout: 2.0
         use_realtime_priority: false
-        
+
         polygons: ["FootprintStop", "FootprintSlowdown", "FootprintApproach"]
         FootprintStop:
             # Define a zone and a point threshold. If min_points or more obstacle points appear inside this area, stop the robot until the obstacles will disappear.

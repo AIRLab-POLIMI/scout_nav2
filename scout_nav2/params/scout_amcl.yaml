@@ -36,9 +36,9 @@ amcl:
         z_max: 0.05
         z_rand: 0.5
         z_short: 0.05
-        scan_topic: /laser_scan
+        scan_topic: /ouster/scan
         map_topic: /map
-        set_initial_pose: true
+        set_initial_pose: false
         initial_pose:
             x: 0.0
             y: 0.0
@@ -55,7 +55,7 @@ bt_navigator:
         wait_for_server_timeout: 1000 # ms
         action_server_result_timeout: 60.0 # s
         transform_tolerance: 0.1 # s
-        
+
         # default behavior tree definitions
         #default_nav_to_pose_bt_xml: $(find-pkg-share nav2_bt_navigator)/behavior_trees/navigate_to_pose_w_replanning_and_recovery.xml
         default_nav_through_poses_bt_xml: $(find-pkg-share nav2_bt_navigator)/behavior_trees/navigate_through_poses_w_replanning_and_recovery.xml
@@ -126,7 +126,6 @@ bt_navigator:
 
 controller_server:
     ros__parameters:
-        #action_server_result_timeout: 10.0
         controller_frequency: 10.0
         min_x_velocity_threshold: 0.001
         min_y_velocity_threshold: 0.5
@@ -149,6 +148,7 @@ controller_server:
             plugin: "nav2_controller::SimpleGoalChecker"
             xy_goal_tolerance: 0.25
             yaw_goal_tolerance: 0.25
+
         FollowPath:
             # combination of 2 local planners: rotation shim controller and MPPI controller
             plugin: "nav2_rotation_shim_controller::RotationShimController"
@@ -178,7 +178,7 @@ controller_server:
             iteration_count: 1
             temperature: 0.3
             gamma: 0.015
-            visualize: True # True for debugging only (will degrade performance)
+            visualize: False # True for debugging only (will degrade performance)
             retry_attempt_limit: 1
             regenerate_noises: false
 
@@ -193,7 +193,7 @@ controller_server:
             inversion_xy_tolerance: 0.2
             inversion_yaw_tolerance: 0.4
             # Ackermann motion model used by MPPI controller in contrast to in-place rotation shim controller
-            motion_model: "DiffDrive" # "Ackermann" or "DiffDrive"
+            motion_model: "DiffDrive"
             AckermannConstraints:
                 min_turning_r: 0.2
             critics: [
@@ -205,7 +205,7 @@ controller_server:
                     "PathFollowCritic", #This critic incentivizes making progress along the path. This is what drives the robot forward along the path.
                     "PathAngleCritic", #This critic penalizes trajectories at a high relative angle to the path. This helps the robot make sharp turns when necessary due to large accumulated angular errors.
                     "PreferForwardCritic", #This critic incentivizes moving in the forward direction, rather than reversing.
-                    "TwirlingCritic" # This critic penalizes unnecessary ‘twisting’ with holonomic vehicles. It adds a constraint on the rotation angle to keep it consistent.
+                    "TwirlingCritic", # This critic penalizes unnecessary ‘twisting’ with holonomic vehicles. It adds a constraint on the rotation angle to keep it consistent.
                 ]
             ConstraintCritic:
                 enabled: true
@@ -214,7 +214,7 @@ controller_server:
             GoalCritic:
                 enabled: true
                 cost_power: 1
-                cost_weight: 10.0
+                cost_weight: 5.0
                 threshold_to_consider: 1.0
             GoalAngleCritic:
                 enabled: true
@@ -229,7 +229,7 @@ controller_server:
             ObstaclesCritic:
                 enabled: true
                 cost_power: 1
-                repulsion_weight: 1.4
+                repulsion_weight: 1.4 # default 1.5
                 critical_weight: 20.0
                 consider_footprint: true
                 collision_cost: 10000.0
@@ -263,7 +263,6 @@ controller_server:
                 twirling_cost_power: 1
                 twirling_cost_weight: 10.0
 
-
 local_costmap:
     local_costmap:
         ros__parameters:
@@ -283,11 +282,11 @@ local_costmap:
 
             plugins: ["voxel_layer", "denoise_layer", "inflation_layer"]
 
-            # volumetric obstacles costmap layer
+            # volumetric obstacles costmap
             voxel_layer:
                 plugin: "nav2_costmap_2d::VoxelLayer"
                 enabled: True
-                footprint_clearing_enabled: true
+                footprint_clearing_enabled: True
                 publish_voxel_map: False
                 origin_z: 0.0
                 z_resolution: 0.05
@@ -297,7 +296,7 @@ local_costmap:
                 observation_sources: pointcloud
                 combination_method: 1
                 pointcloud: # no frame set, uses frame from message
-                    topic: /points
+                    topic: /ouster/points
                     max_obstacle_height: 1.5
                     min_obstacle_height: 0.1
                     obstacle_max_range: 12.0
@@ -307,7 +306,7 @@ local_costmap:
                     clearing: True
                     marking: True
                     data_type: "PointCloud2"
-            
+
             # denoising costmap by removing outlier points in groups less big than the minimum
             denoise_layer:
                 plugin: "nav2_costmap_2d::DenoiseLayer"
@@ -333,8 +332,8 @@ global_costmap:
             footprint: "[ [0.45, 0.35], [0.45, -0.35], [-0.45, -0.35], [-0.45, 0.35] ]"
             footprint_padding: 0.02
             resolution: 0.05
-            width: 16
-            height: 16
+            width: 12
+            height: 12
             track_unknown_space: true
             lethal_cost_threshold: 100
 
@@ -353,7 +352,7 @@ global_costmap:
                 enabled: true
                 minimal_group_size: 5
                 group_connectivity_type: 8
-            
+
             inflation_layer:
                 plugin: "nav2_costmap_2d::InflationLayer"
                 cost_scaling_factor: 2.0
@@ -385,7 +384,7 @@ planner_server:
             max_iterations: 1000000 # maximum total iterations to search for before failing (in case unreachable), set to -1 to disable
             max_on_approach_iterations: 1000 # Maximum number of iterations after within tolerances to continue to try to find exact solution
             max_planning_time: 10.0 # max time in s for planner to plan, smooth
-            motion_model_for_search: "DUBIN" # Hybrid-A* DUBIN, REEDS_SHEPP supports reversing but doesn't work at all
+            motion_model_for_search: "DUBIN" # Hybrid-A* Dubin, Redds-Shepp
             angle_quantization_bins: 64 # Number of angle bins for search
             analytic_expansion_ratio: 3.5 # The ratio to attempt analytic expansions during search for final approach.
             analytic_expansion_max_length: 3.0 # For Hybrid/Lattice nodes: The maximum length of the analytic expansion to be considered valid to prevent unsafe shortcutting
@@ -486,8 +485,8 @@ velocity_smoother:
         smoothing_frequency: 20.0
         scale_velocities: False
         feedback: "OPEN_LOOP"
-        max_velocity: [1.0, 0.0, 0.5]
-        min_velocity: [-1.0, 0.0, -0.5]
+        max_velocity: [0.3, 0.0, 0.5]
+        min_velocity: [-0.3, 0.0, -0.5]
         max_accel: [2.5, 0.0, 2.0]
         max_decel: [-2.5, 0.0, -2.0]
         odom_topic: /odometry
@@ -509,7 +508,7 @@ slam_toolbox:
         odom_frame: odom
         map_frame: map
         base_frame: base_footprint # --> base_footprint
-        scan_topic: /laser_scan # --> /scan
+        scan_topic: /ouster/scan # --> /scan
         use_map_saver: true
         mode: mapping #OR localization
 
@@ -520,8 +519,8 @@ slam_toolbox:
         resolution: 0.05
         max_laser_range: 16.0 #for rastering images
         minimum_time_interval: 0.5
-        transform_timeout: 1.0
-        tf_buffer_duration: 30.0
+        transform_timeout: 0.2
+        tf_buffer_duration: 30.
         stack_size_to_use: 40000000 #// program needs a larger stack size to serialize large maps
         enable_interactive_mode: true
 
@@ -608,10 +607,18 @@ collision_monitor:
             visualize: True
             enabled: False
 
-        observation_sources: ["pointcloud"]
+        observation_sources: ["scan"]
+        scan:
+            source_timeout: 0.2
+            type: "scan"
+            topic: "/ouster/scan"
+            min_height: 0.1
+            max_height: 2.0
+            enabled: True
+        #NOTE: enabling pointcloud for collision monitoring makes the robot stop and not moving for some reason
         pointcloud:
             type: "pointcloud"
-            topic: "/points"
+            topic: "/ouster/points"
             min_height: 0.1
-            max_height: 1.5
-            enabled: True
+            max_height: 2.0
+            enabled: False

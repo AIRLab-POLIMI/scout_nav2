@@ -1,5 +1,4 @@
 import os
-
 from ament_index_python.packages import get_package_share_directory
 
 from launch import LaunchDescription
@@ -59,7 +58,7 @@ def launch_setup(context, *args, **kwargs):
 
         if (LaunchConfiguration("slam").perform(context) == "True"):
             # SLAM for localization and mapping
-            params_file_name = "sim_lidar3d_acml.yaml"
+            params_file_name = "sim_lidar3d_amcl.yaml"
             # ignore localization argument
         else:
             # performing localization and navigation
@@ -68,29 +67,29 @@ def launch_setup(context, *args, **kwargs):
                 params_file_name = "sim_slam_localization.yaml"
             else:
                 # AMCL localization
-                params_file_name = "sim_lidar3d_acml.yaml"
+                params_file_name = "sim_lidar3d_amcl.yaml"
 
     elif LaunchConfiguration("simulation").perform(context) == "false":
         # Real robot
-        map_file = "airlab/map_lidar3d_v2.yaml"
+        map_file = "airlab/map_lidar3d_v3.yaml"
         use_sim_time = "false"
 
         if (LaunchConfiguration("slam").perform(context) == "True"):
             # SLAM for localization and mapping
-            params_file_name = "nav2_params_scout.yaml"
+            params_file_name = "scout_amcl.yaml"
             # ignore localization argument
         else:
             # performing localization and navigation
-            if (LaunchConfiguration("localization").perform(context) == "amcl"):
-                # AMCL localization
-                params_file_name = "nav2_params_scout.yaml"  # TODO: change old filename
-            else:
+            if (LaunchConfiguration("localization").perform(context) == "slam_toolbox"):
                 # SLAM toolbox localization
                 params_file_name = "scout_slam_localization.yaml"
+            else:
+                # AMCL localization
+                params_file_name = "scout_amcl.yaml"
 
-    # parameters file path
+    # NAV2 parameters file path
     nav2_params_file = os.path.join(scout_nav2_dir, "params", params_file_name)
-    # map file path
+    # map file path for localization with AMCL
     map_yaml_file = os.path.join(scout_nav2_dir, "maps", map_file)
 
     # if slam is enabled --> slam + localization + navigation
@@ -106,7 +105,7 @@ def launch_setup(context, *args, **kwargs):
     )
 
     # if slam is disabled --> localization + navigation
-    nav2_amcl_nav_launch = IncludeLaunchDescription(
+    nav2_localization_navigation_launch = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(nav2_launch_file),
         launch_arguments={
             "use_sim_time": use_sim_time,
@@ -114,7 +113,7 @@ def launch_setup(context, *args, **kwargs):
             # localization + navigation
             "slam": LaunchConfiguration("slam"),
             "map": map_yaml_file,  # map file
-            "localization": LaunchConfiguration("localization") # amcl or slam_toolbox
+            "localization": LaunchConfiguration("localization")  # amcl or slam_toolbox
         }.items(),
         condition=IfCondition(PythonExpression([LaunchConfiguration("slam"), " == False"])),
     )
@@ -153,4 +152,4 @@ def launch_setup(context, *args, **kwargs):
         arguments=["-d", rviz_default_config_file],
     )
 
-    return [nav2_slam_launch, nav2_amcl_nav_launch, rviz_node, static_tf]
+    return [nav2_slam_launch, nav2_localization_navigation_launch, rviz_node, static_tf]

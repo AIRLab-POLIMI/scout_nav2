@@ -107,8 +107,8 @@ def generate_launch_description():
 			'angle_min': -pi,
 			'angle_max': pi,
 			'angle_increment': pi / 180.0 / 2.0,
-			'scan_time': 1/10, # 10Hz
-			'range_min': 1.0,
+			'scan_time': 1/10.0, # 10Hz
+			'range_min': 0.1,
 			'range_max': 100.0,
 			'use_inf': True,
 		}],
