@@ -27,9 +27,9 @@ from tf2_ros.transform_listener import TransformListener
 
 
 # NAV2 control API imports (ROS2-Iron Python bindings required)
-from nav2_simple_commander.costmap_2d import PyCostmap2D
-from nav2_simple_commander.footprint_collision_checker import FootprintCollisionChecker
-from nav2_simple_commander.robot_navigator import BasicNavigator, TaskResult
+from mobile_manipulation.costmap_2d import PyCostmap2D
+from mobile_manipulation.footprint_collision_checker import FootprintCollisionChecker
+from mobile_manipulation.robot_navigator import BasicNavigator, TaskResult
 
 
 class RobotParking(Node):
@@ -119,6 +119,16 @@ class RobotParking(Node):
     MAX_NON_OBSTACLE = 252
     FREE_SPACE = 0
 
+    # parking algorithm parameters
+    target_radius = 0.5 # meters
+    xy_samples = 10  # number of random samples for x,y coordinates
+    theta_samples = 10  # number of random samples for theta orientation
+
+    # Footprint dimensions
+    robot_width = 0.9  # meters
+    robot_length = 0.7  # meters
+
+
     def __init__(self, navigator: BasicNavigator):
         """
         Constructor: create a node for the robot parking algorithm
@@ -130,7 +140,7 @@ class RobotParking(Node):
             navigator (BasicNavigator): the NAV2 control API object
 
         """
-        super().__init__("robot_parking")
+        super().__init__("park_robot")
 
         # Subscriber to target pose topic
         self.subscription = self.create_subscription(
@@ -146,15 +156,7 @@ class RobotParking(Node):
         self.navigator = navigator
         self.checker = FootprintCollisionChecker()
         self.map_frame = "map"
-
-        # Parameters
-        self.target_radius = 0.5  # meters
-        self.xy_samples = 10  # number of random samples for x,y coordinates
-        self.theta_samples = 10  # number of random samples for theta orientation
-
-        # Footprint dimensions
-        self.robot_width = 0.9  # meters
-        self.robot_length = 0.7  # meters
+        
         self.footprint = Polygon()
         self.compute_footprint_polygon()
 
@@ -185,7 +187,13 @@ class RobotParking(Node):
 
         """
         self.get_logger().info("Received target pose:\n%s" % msg.pose)
-        self.target = msg.pose
+        self.target_xyz = msg.pose.position
+        # get yaw angle from quaternion
+        roll, pitch, yaw = euler_from_quaternion(
+            [msg.pose.orientation.x, msg.pose.orientation.y, msg.pose.orientation.z, msg.pose.orientation.w]
+        )
+        self.target_yaw = yaw
+
         self.target_available = True
 
     def setup_navigation(self):
@@ -204,7 +212,7 @@ class RobotParking(Node):
             # self.navigator.lifecycleStartup()
 
             # Wait for navigation to fully activate, since autostarting nav2
-            self.navigator.waitUntilNav2Active()
+            self.navigator.waitUntilNav2Active(localizer="robot_localization")
 
             global_costmap = self.navigator.getGlobalCostmap()
             costmap = PyCostmap2D(global_costmap)
@@ -238,10 +246,7 @@ class RobotParking(Node):
                     self.get_logger().info(
                         "Estimated time of arrival: "
                         + "{0:.2f}".format(
-                            Duration.from_msg(
-                                feedback.estimated_time_remaining
-                            ).nanoseconds
-                            / 1e9
+                            Duration.from_msg(feedback.estimated_time_remaining).nanoseconds / 1e9
                         )
                         + " seconds."
                     )
@@ -255,7 +260,7 @@ class RobotParking(Node):
             elif result == TaskResult.FAILED:
                 print("Goal failed!")
             else:
-                print("Goal has an invalid return status!")
+                print("Goal has an unknown return status!")
 
             # self.navigator.lifecycleShutdown()
 
@@ -291,8 +296,7 @@ class RobotParking(Node):
         target_candidates, target_costs = self.filter_out_colliding_poses(
             target_candidates)
 
-        self.get_logger().info(
-            f"reduced candidates number = {target_candidates.shape[0]}")
+        self.get_logger().info(f"reduced candidates number = {target_candidates.shape[0]}")
 
         if target_candidates.shape[0] == 0:
             self.get_logger().error("No feasible parking poses found!")
@@ -306,10 +310,8 @@ class RobotParking(Node):
         # self.get_logger().info(f"computed target metrics:\n{ranking_metrics}")
 
         # sort the target candidates by the corresponding rank metric
-        target_candidates = np.concatenate(
-            (target_candidates, target_costs), axis=1)
-        target_candidates = np.concatenate(
-            (target_candidates, ranking_metrics), axis=1)
+        target_candidates = np.concatenate( (target_candidates, target_costs), axis=1)
+        target_candidates = np.concatenate( (target_candidates, ranking_metrics), axis=1)
         # self.get_logger().info(f"shape candidates with scores = {target_candidates.shape}")
 
         sorted_indices = np.argsort(target_candidates[:, -1])[::-1]
@@ -421,8 +423,11 @@ class RobotParking(Node):
             f"Initial pose set to: {self.initial_pose.pose.position.x:.3f} {self.initial_pose.pose.position.y:.3f} {euler[2]:.3f} "
         )
 
-    def sample_positions(self) -> list(float):
+    def sample_positions(self) -> list[float]:
         """ sample xy_samples random positions in a circle of radius target_radius centered in the target pose
+
+        The positions are sampled in a circle arc of radius target_radius centered in the target pose.
+        The arc must be in the same direction of target_yaw angle, and spanning 60 degrees.
 
         Returns:
         -------
@@ -433,11 +438,18 @@ class RobotParking(Node):
         position_samples = []
 
         for i in range(self.xy_samples):
-            # sample a random angle
-            theta = np.random.uniform(0, 2 * np.pi)
+            # sample a random angle theta from -pi/6 to pi/6 
+            theta = np.random.uniform(- np.pi / 6.0, np.pi / 6.0) + self.target_yaw
+
+            # correct theta angle such that it is in the range -pi to pi
+            if theta > np.pi:
+                theta -= 2 * np.pi
+            elif theta < -np.pi:
+                theta += 2 * np.pi
+
             # compute x,y coordinates
-            x = self.target.position.x + self.target_radius * np.cos(theta)
-            y = self.target.position.y + self.target_radius * np.sin(theta)
+            x = self.target_xyz.x + self.target_radius * np.cos(theta)
+            y = self.target_xyz.y + self.target_radius * np.sin(theta)
             # save the position
             position_samples.append([x, y])
 
@@ -462,7 +474,7 @@ class RobotParking(Node):
 
         # base angle is the angle of the vector starting from the target pose and ending in the given new goal pose
         base_angle = np.arctan2(
-            goal_y - self.target.position.y, goal_x - self.target.position.x
+            goal_y - self.target_xyz.y, goal_x - self.target_xyz.x
         )
 
         # sample theta_samples random orientations in the range -pi /2 < theta < pi/2
@@ -475,7 +487,7 @@ class RobotParking(Node):
         # return the sampled orientations in a vector
         return orientation_samples
 
-    def compute_footprint_cost_at_pose(self, x: float, y: float, theta: float):
+    def compute_footprint_cost_at_pose(self, x: float, y: float, theta: float) -> int:
         """given a position and orientation, compute the footprint coordinates of the robot
 
         Parameters:
@@ -559,7 +571,7 @@ class RobotParking(Node):
             theta = target_candidates[row][2]
             cost = self.compute_footprint_cost_at_pose(x, y, theta)
 
-            if cost >= self.LETHAL_OBSTACLE:  # collision detected
+            if cost > self.INSCRIBED_INFLATED_OBSTACLE:  # collision detected => lethal obstacle
                 target_candidates = np.delete(target_candidates, row, axis=0)
                 total -= 1
             else:
@@ -607,14 +619,14 @@ class RobotParking(Node):
             cost_norm = 1.0 - cost / 254.0  # lower cost means higher value
 
             distance = np.sqrt(
-                (x - self.target.position.x) ** 2 +
-                (y - self.target.position.y) ** 2
+                (x - self.target_xyz.x) ** 2 +
+                (y - self.target_xyz.y) ** 2
             )
             # 10 meters is the maximum distance from the target pose
             distance_norm = 1.0 - distance / max_distance
 
             orientation = np.arctan2(
-                y - self.target.position.y, x - self.target.position.x
+                y - self.target_xyz.y, x - self.target_xyz.x
             )
             # delta from the base angle = direction from target pose to the new goal pose
             orientation_delta = np.abs(orientation - theta)
