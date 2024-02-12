@@ -4,7 +4,6 @@ This package offers the configuration files and launch files for the navigation 
 
 Launch files:
 - `ros2 launch nav2.launch.py`: launches the entire navigation stack.
-- `ros2 launch parking.launch.py`: launches the parking pose computation node. It can be used directly with RViz. Click on "2D Goal" in RViz, and then click on the map to set the target position. The parking goal pose will be computed and published on the topic `/target_goal`, which is then sent to the navigation stack and used to navigate the robot to the designed optimal parking position.
 
 ### Parking node: optimal parking pose computation
 
@@ -31,4 +30,4 @@ The navigation stack is based on the package  `nav2_bringup` from the [Navigatio
 
 ### Nav2-bringup package
 
-Note: the original nav2-bringup package has been substituted with a custom version , which is a fork of the original package. The custom version is available at [nav2-bringup-custom](../nav2_bringup/) folder. The custom version is needed to allow the use of the `nav2_collision_monitor` node, which is not available in the original package.
+Note: the original nav2-bringup package has been substituted with a custom version, which is a fork of the original package. The custom version is available at [nav2-bringup-custom](../nav2_bringup/) folder. The custom version is needed to allow the use of the `nav2_collision_monitor` node, which is not available in the original package.

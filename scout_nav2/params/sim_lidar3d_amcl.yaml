@@ -171,8 +171,8 @@ controller_server:
             vx_std: 0.2
             vy_std: 0.2
             wz_std: 0.4
-            vx_max: 1.0
-            vx_min: -1.0
+            vx_max: 0.5
+            vx_min: -0.5
             vy_max: 0.5
             wz_max: 1.0
             iteration_count: 1
@@ -374,7 +374,7 @@ map_server:
 
 planner_server:
     ros__parameters:
-        expected_planner_frequency: 20.0
+        expected_planner_frequency: 10.0
         planner_plugins: ["GridBased"]
         GridBased:
             plugin: "nav2_smac_planner/SmacPlannerHybrid"
