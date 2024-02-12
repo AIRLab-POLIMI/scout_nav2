@@ -24,6 +24,7 @@ from tf_transformations import euler_from_quaternion
 from tf2_ros.buffer import Buffer
 from tf2_ros import TransformException
 from tf2_ros.transform_listener import TransformListener
+from geometry_msgs.msg import TransformStamped
 
 
 # NAV2 control API imports (ROS2-Iron Python bindings required)
@@ -121,8 +122,10 @@ class RobotParking(Node):
 
     # parking algorithm parameters
     target_radius = 0.5 # meters
-    xy_samples = 10  # number of random samples for x,y coordinates
-    theta_samples = 10  # number of random samples for theta orientation
+    theta_samples = 10  # number of random samples for x,y coordinates, where theta is the orientation from the target
+    phi_samples = 10  # number of random samples for phi orientation, where phi is the orientation delta from theta
+    theta_delta_max = np.pi / 6.0 # radians, maximum orientation delta from the normal of the target pose
+    phi_delta_max = np.pi / 3.0  # radians, maximum orientation variation of the mobile base with respect to the theta angle
 
     # Footprint dimensions
     robot_width = 0.9  # meters
@@ -166,7 +169,8 @@ class RobotParking(Node):
         self.initial_pose = PoseStamped()
 
         # Create the TF2 transform listener
-        self.robot_link_name = "mobile_robot_base_link"
+        self.robot_link_frame = "rear_mount"
+        self.robot_center_frame = "mobile_robot_base_link"
         self.tf_buffer = Buffer()
         self.tf_listener = TransformListener(buffer=self.tf_buffer, node=self)
 
@@ -280,13 +284,11 @@ class RobotParking(Node):
 
         position_samples = self.sample_positions()
         for position in position_samples:
-            # 2. random sample m possible theta orientations, with pi < |theta| < pi/2
-            orientation_samples = self.sample_orientations(
-                position[0], position[1])
+            # 2. random sample m possible phi orientations, with pi < |phi| < pi/2
+            orientation_samples = self.sample_orientations(position[0], position[1])
             for theta in orientation_samples:
                 target_candidates = np.append(
-                    target_candidates, [
-                        [position[0], position[1], theta]], axis=0
+                    target_candidates, [[position[0], position[1], theta]], axis=0
                 )
 
         self.get_logger().info(
@@ -312,11 +314,11 @@ class RobotParking(Node):
         # sort the target candidates by the corresponding rank metric
         target_candidates = np.concatenate( (target_candidates, target_costs), axis=1)
         target_candidates = np.concatenate( (target_candidates, ranking_metrics), axis=1)
-        # self.get_logger().info(f"shape candidates with scores = {target_candidates.shape}")
+        # self.get_logger().debug(f"shape candidates with scores = {target_candidates.shape}")
 
         sorted_indices = np.argsort(target_candidates[:, -1])[::-1]
         sorted_targets = target_candidates[sorted_indices]
-        self.get_logger().info(f"computed sorted targets:\n{sorted_targets}")
+        self.get_logger().debug(f"computed sorted targets:\n{sorted_targets}")
 
         # iterate the first n target candidates until a feasible parking pose is found
         max_iterations = 10
@@ -335,8 +337,7 @@ class RobotParking(Node):
             )
             path = self.navigator.getPath(self.initial_pose, goal_pose)
             if path is not None:
-                print("Path to goal pose is feasible! Metric rank = %f" %
-                      sorted_targets[i][-1])
+                print("Path to goal pose is feasible! Metric rank = %f" % sorted_targets[i][-1])
                 break
             else:
                 print(
@@ -374,31 +375,9 @@ class RobotParking(Node):
         It then sets the initial pose of the robot to the computed pose.
 
         """
-        # Wait for the listener to connect to the TF2 data
-        time_now = rclpy.time.Time()
-        while not self.tf_buffer.can_transform(
-            self.map_frame,
-            self.robot_link_name,
-            rclpy.time.Time(),
-            timeout=rclpy.duration.Duration(seconds=0.1),
-        ):
-            self.get_logger().info(
-                f"Waiting for transform from map to {self.robot_link_name} ..."
-            )
-            time.sleep(0.5)
-            time_now = rclpy.time.Time()
-
-        # Get the pose of the link frame relative to the base frame
-        try:
-            robot_transform = self.tf_buffer.lookup_transform(
-                self.map_frame,
-                self.robot_link_name,
-                rclpy.time.Time(),
-                timeout=rclpy.duration.Duration(seconds=0.1),
-            )
-        except TransformException as ex:
-            self.get_logger().info(f"Could not transform tf: {ex}")
-            time.sleep(0.5)
+        robot_transform = self.get_tf(
+            reference_frame=self.map_frame, target_frame=self.robot_center_frame
+        )
 
         time_now = self.navigator.get_clock().now()
         self.initial_pose.header.frame_id = self.map_frame
@@ -427,7 +406,7 @@ class RobotParking(Node):
         """ sample xy_samples random positions in a circle of radius target_radius centered in the target pose
 
         The positions are sampled in a circle arc of radius target_radius centered in the target pose.
-        The arc must be in the same direction of target_yaw angle, and spanning 60 degrees.
+        The arc must be in the same direction of target_yaw angle, and spanning theta_delta_max radians.
 
         Returns:
         -------
@@ -437,15 +416,17 @@ class RobotParking(Node):
         """
         position_samples = []
 
-        for i in range(self.xy_samples):
+        for i in range(self.theta_samples):
             # sample a random angle theta from -pi/6 to pi/6 
-            theta = np.random.uniform(- np.pi / 6.0, np.pi / 6.0) + self.target_yaw
+            theta = np.random.uniform(- self.theta_delta_max, self.theta_delta_max) + self.target_yaw
 
             # correct theta angle such that it is in the range -pi to pi
             if theta > np.pi:
                 theta -= 2 * np.pi
             elif theta < -np.pi:
                 theta += 2 * np.pi
+
+            #TODO: target radius variable with theta angle and z elevation
 
             # compute x,y coordinates
             x = self.target_xyz.x + self.target_radius * np.cos(theta)
@@ -457,7 +438,7 @@ class RobotParking(Node):
         return position_samples
 
     def sample_orientations(self, goal_x: float, goal_y: float) -> np.array:
-        """ random sample m possible theta orientations, with pi < |theta| < pi/2
+        """ random sample m possible phi orientations, with pi < |phi| < pi/2
 
         Parameters:
         ----------
@@ -477,9 +458,9 @@ class RobotParking(Node):
             goal_y - self.target_xyz.y, goal_x - self.target_xyz.x
         )
 
-        # sample theta_samples random orientations in the range -pi /2 < theta < pi/2
+        # sample phi_samples random orientations in the range - pi /2 < phi < pi/2
         orientation_samples = np.random.uniform(
-            -np.pi / 2, np.pi / 2, size=self.theta_samples
+            - self.phi_delta_max, self.phi_delta_max, size=self.phi_samples
         )
 
         orientation_samples = np.add(orientation_samples, base_angle)
@@ -512,6 +493,51 @@ class RobotParking(Node):
         if cost >= 252:
             self.get_logger().info("Footprint cost is too high: %d" % cost)
         return cost
+    
+    def get_tf(self, reference_frame: str, target_frame: str) -> TransformStamped:
+        """Get the transform from the reference frame to the robot center
+
+        Parameters:
+        ----------
+        reference_frame : str
+            the reference frame
+        robot_frame : str
+            the target frame
+
+        Returns:
+        -------
+        transform : geometry_msgs.msg.TransformStamped
+            the transform from the reference frame to the target frame
+
+        """
+
+        # Wait for the listener to connect to the TF2 data
+        time_now = rclpy.time.Time()
+        while not self.tf_buffer.can_transform(
+            reference_frame,
+            target_frame,
+            time_now,
+            timeout=rclpy.duration.Duration(seconds=0.1),
+        ):
+            self.get_logger().debug(
+                f"Waiting for transform from map to {target_frame} ..."
+            )
+            time.sleep(0.2)
+            time_now = rclpy.time.Time()
+
+        # Get the pose of the link frame relative to the base frame
+        try:
+            transform = self.tf_buffer.lookup_transform(
+                reference_frame,
+                target_frame,
+                rclpy.time.Time(),
+                timeout=rclpy.duration.Duration(seconds=0.1),
+            )
+        except TransformException as ex:
+            self.get_logger().error(f"Could not transform tf: {ex}")
+            time.sleep(0.5)
+
+        return transform
 
     def convert_to_pose_stamped(self, x: float, y: float, theta: float) -> PoseStamped:
         """ convert x,y,theta coordinates to PoseStamped
@@ -519,9 +545,9 @@ class RobotParking(Node):
         Parameters:
         ----------
         x : float
-            x coordinate
+            x coordinate in the robot_link frame
         y : float
-            y coordinate
+            y coordinate in the robot_link frame
         theta : float
             orientation angle
 
@@ -531,6 +557,14 @@ class RobotParking(Node):
             the pose in PoseStamped format
 
         """
+
+        # get the transform from the robot reference frame to the robot center frame
+        tf_mount_robot = self.get_tf(reference_frame=self.robot_link_frame, target_frame=self.robot_center_frame)
+
+        # apply the transform to the x,y coordinates, to get the final pose of the robot, in the robot center frame
+        x = x + tf_mount_robot.transform.translation.x * np.cos(theta) - tf_mount_robot.transform.translation.y * np.cos(theta)
+        y = y + tf_mount_robot.transform.translation.y * np.sin(theta) + tf_mount_robot.transform.translation.x * np.sin(theta)
+
         pose = PoseStamped()
         pose.header.frame_id = self.map_frame
         pose.header.stamp = self.navigator.get_clock().now().to_msg()
@@ -562,7 +596,7 @@ class RobotParking(Node):
 
         """
         # filter out the parking poses colliding with any walls or obstacles.
-        target_costs = np.empty((0, 1), dtype=np.float)
+        target_costs = np.empty((0, 1), dtype=np.float32)
         total = target_candidates.shape[0]
         row = 0
         while row < total:
@@ -576,7 +610,7 @@ class RobotParking(Node):
                 total -= 1
             else:
                 # save the cost of the targets computed
-                cost = np.array([[cost]], dtype=np.float)
+                cost = np.array([[cost]], dtype=np.float32)
                 target_costs = np.append(target_costs, cost, axis=0)
                 row += 1
 
