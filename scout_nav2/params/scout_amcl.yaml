@@ -151,20 +151,21 @@ controller_server:
 
         FollowPath:
             # combination of 2 local planners: rotation shim controller and MPPI controller
-            plugin: "nav2_rotation_shim_controller::RotationShimController"
-            primary_controller: "nav2_mppi_controller::MPPIController"
+            #plugin: "nav2_rotation_shim_controller::RotationShimController"
+            #primary_controller: "nav2_mppi_controller::MPPIController"
 
             # Rotation shim controller parameters
             # Backup controller for rotation in place when angular heading error is larger than threshold
             # https://navigation.ros.org/configuration/packages/configuring-rotation-shim-controller.html
-            angular_dist_threshold: 0.5 # (radians) threshold for switching to rotation in place
-            forward_sampling_distance: 0.5
-            rotate_to_heading_angular_vel: 1.0
-            max_angular_accel: 2.0
-            simulate_ahead_time: 3.0
+            #angular_dist_threshold: 0.5 # (radians) threshold for switching to rotation in place
+            #forward_sampling_distance: 0.5
+            #rotate_to_heading_angular_vel: 1.0
+            #max_angular_accel: 2.0
+            #simulate_ahead_time: 3.0
 
             # MPPI Controller parameters: local planner (controller)
             # https://navigation.ros.org/configuration/packages/configuring-mppic.html
+            plugin: "nav2_mppi_controller::MPPIController"
             time_steps: 50
             model_dt: 0.1
             batch_size: 1000
@@ -204,7 +205,7 @@ controller_server:
                     "PathAlignCritic", #This critic incentivizes aligning with the global path, if relevant. It does not implement path following behavior.
                     "PathFollowCritic", #This critic incentivizes making progress along the path. This is what drives the robot forward along the path.
                     "PathAngleCritic", #This critic penalizes trajectories at a high relative angle to the path. This helps the robot make sharp turns when necessary due to large accumulated angular errors.
-                    "PreferForwardCritic", #This critic incentivizes moving in the forward direction, rather than reversing.
+                    #"PreferForwardCritic", #This critic incentivizes moving in the forward direction, rather than reversing.
                     "TwirlingCritic", # This critic penalizes unnecessary ‘twisting’ with holonomic vehicles. It adds a constraint on the rotation angle to keep it consistent.
                 ]
             ConstraintCritic:
@@ -222,7 +223,7 @@ controller_server:
                 cost_weight: 10.0
                 threshold_to_consider: 1.0
             PreferForwardCritic:
-                enabled: true
+                enabled: false
                 cost_power: 1
                 cost_weight: 1.0
                 threshold_to_consider: 1.0
@@ -272,8 +273,8 @@ local_costmap:
             robot_base_frame: mobile_robot_base_link
             map_topic: /map
             rolling_window: true
-            width: 5
-            height: 5
+            width: 6
+            height: 6
             resolution: 0.05
             footprint: "[ [0.45, 0.35], [0.45, -0.35], [-0.45, -0.35], [-0.45, 0.35] ]"
             footprint_padding: 0.02
@@ -289,7 +290,7 @@ local_costmap:
                 footprint_clearing_enabled: True
                 publish_voxel_map: False
                 origin_z: 0.0
-                z_resolution: 0.05
+                z_resolution: 0.1
                 z_voxels: 16
                 unknown_threshold: 15
                 mark_threshold: 0
@@ -297,8 +298,8 @@ local_costmap:
                 combination_method: 1
                 pointcloud: # no frame set, uses frame from message
                     topic: /ouster/points
-                    max_obstacle_height: 1.5
-                    min_obstacle_height: 0.1
+                    max_obstacle_height: 1.0
+                    min_obstacle_height: 0.15
                     obstacle_max_range: 12.0
                     obstacle_min_range: 0.0
                     raytrace_max_range: 15.0
@@ -311,7 +312,7 @@ local_costmap:
             denoise_layer:
                 plugin: "nav2_costmap_2d::DenoiseLayer"
                 enabled: true
-                minimal_group_size: 5
+                minimal_group_size: 4
                 group_connectivity_type: 8
 
             inflation_layer:
@@ -332,8 +333,8 @@ global_costmap:
             footprint: "[ [0.45, 0.35], [0.45, -0.35], [-0.45, -0.35], [-0.45, 0.35] ]"
             footprint_padding: 0.02
             resolution: 0.05
-            width: 12
-            height: 12
+            width: 16
+            height: 16
             track_unknown_space: true
             lethal_cost_threshold: 100
 
@@ -350,7 +351,7 @@ global_costmap:
             denoise_layer:
                 plugin: "nav2_costmap_2d::DenoiseLayer"
                 enabled: true
-                minimal_group_size: 5
+                minimal_group_size: 4
                 group_connectivity_type: 8
 
             inflation_layer:
@@ -384,12 +385,12 @@ planner_server:
             max_iterations: 1000000 # maximum total iterations to search for before failing (in case unreachable), set to -1 to disable
             max_on_approach_iterations: 1000 # Maximum number of iterations after within tolerances to continue to try to find exact solution
             max_planning_time: 10.0 # max time in s for planner to plan, smooth
-            motion_model_for_search: "DUBIN" # Hybrid-A* Dubin, Redds-Shepp
+            motion_model_for_search: "REEDS_SHEPP" # Hybrid-A* Dubin, Redds-Shepp
             angle_quantization_bins: 64 # Number of angle bins for search
             analytic_expansion_ratio: 3.5 # The ratio to attempt analytic expansions during search for final approach.
             analytic_expansion_max_length: 3.0 # For Hybrid/Lattice nodes: The maximum length of the analytic expansion to be considered valid to prevent unsafe shortcutting
             minimum_turning_radius: 0.2 # minimum turning radius in m of path / vehicle
-            reverse_penalty: 2.0 # Penalty to apply if motion is reversing, must be => 1
+            reverse_penalty: 1.2 # Penalty to apply if motion is reversing, must be => 1
             change_penalty: 0.0 # Penalty to apply if motion is changing directions (L to R), must be >= 0
             non_straight_penalty: 1.2 # Penalty to apply if motion is non-straight, must be => 1
             cost_penalty: 2.0 # Penalty to apply to higher cost areas when adding into the obstacle map dynamic programming distance expansion heuristic. This drives the robot more towards the center of passages. A value between 1.3 - 3.5 is reasonable.
@@ -485,8 +486,8 @@ velocity_smoother:
         smoothing_frequency: 20.0
         scale_velocities: False
         feedback: "OPEN_LOOP"
-        max_velocity: [0.3, 0.0, 0.5]
-        min_velocity: [-0.3, 0.0, -0.5]
+        max_velocity: [1.0, 0.0, 0.5]
+        min_velocity: [-1.0, 0.0, -0.5]
         max_accel: [2.5, 0.0, 2.0]
         max_decel: [-2.5, 0.0, -2.0]
         odom_topic: /odometry
@@ -612,13 +613,13 @@ collision_monitor:
             source_timeout: 0.2
             type: "scan"
             topic: "/ouster/scan"
-            min_height: 0.1
-            max_height: 2.0
+            min_height: 0.15
+            max_height: 1.0
             enabled: True
         #NOTE: enabling pointcloud for collision monitoring makes the robot stop and not moving for some reason
         pointcloud:
             type: "pointcloud"
             topic: "/ouster/points"
-            min_height: 0.1
-            max_height: 2.0
+            min_height: 0.15
+            max_height: 1.0
             enabled: False

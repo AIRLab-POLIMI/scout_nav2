@@ -19,8 +19,8 @@
 		<xacro:include filename="$(find agilex_scout)/urdf/sensors/os1.urdf" />
 
 		<joint name="os1_joint" type="fixed">
-			<origin xyz="0.15 0.0 0.49" rpy="0.0 0.0 0.0" />
-			<parent link="base_link" />
+			<origin xyz="0.2 0.0 0.64" rpy="0.0 0.0 0.0" />
+			<parent link="mobile_robot_base_link" />
 			<child link="os_sensor" />
 		</joint>
 

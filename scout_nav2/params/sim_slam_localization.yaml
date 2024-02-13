@@ -156,7 +156,7 @@ controller_server:
                     "PathAlignCritic", #This critic incentivizes aligning with the global path, if relevant. It does not implement path following behavior.
                     "PathFollowCritic", #This critic incentivizes making progress along the path. This is what drives the robot forward along the path.
                     "PathAngleCritic", #This critic penalizes trajectories at a high relative angle to the path. This helps the robot make sharp turns when necessary due to large accumulated angular errors.
-                    "PreferForwardCritic", #This critic incentivizes moving in the forward direction, rather than reversing.
+                    #"PreferForwardCritic", #This critic incentivizes moving in the forward direction, rather than reversing.
                     "TwirlingCritic", # This critic penalizes unnecessary ‘twisting’ with holonomic vehicles. It adds a constraint on the rotation angle to keep it consistent.
                 ]
             ConstraintCritic:
@@ -174,7 +174,7 @@ controller_server:
                 cost_weight: 10.0
                 threshold_to_consider: 1.0
             PreferForwardCritic:
-                enabled: true
+                enabled: false
                 cost_power: 1
                 cost_weight: 1.0
                 threshold_to_consider: 1.0
@@ -262,7 +262,7 @@ local_costmap:
             denoise_layer:
                 plugin: "nav2_costmap_2d::DenoiseLayer"
                 enabled: true
-                minimal_group_size: 5
+                minimal_group_size: 4
                 group_connectivity_type: 8
 
             inflation_layer:
@@ -301,7 +301,7 @@ global_costmap:
             denoise_layer:
                 plugin: "nav2_costmap_2d::DenoiseLayer"
                 enabled: true
-                minimal_group_size: 5
+                minimal_group_size: 4
                 group_connectivity_type: 8
 
             inflation_layer:

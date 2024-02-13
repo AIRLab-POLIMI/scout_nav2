@@ -102,7 +102,7 @@ def generate_launch_description():
 					('scan', "/ouster/scan")],
 		parameters=[{
 			'transform_tolerance': 0.05,
-			'min_height': -0.5,
+			'min_height': -0.64,
 			'max_height': 1.0,
 			'angle_min': -pi,
 			'angle_max': pi,
