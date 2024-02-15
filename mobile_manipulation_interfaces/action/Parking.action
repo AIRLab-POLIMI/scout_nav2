@@ -1,0 +1,9 @@
+# Request
+geometry_msgs/PoseStamped goal_pose
+---
+# Result
+string nav2_result
+---
+# Feedback
+float32 distance_remaining
+geometry_msgs/Pose parking_goal

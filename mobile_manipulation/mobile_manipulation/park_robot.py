@@ -32,6 +32,9 @@ from mobile_manipulation.costmap_2d import PyCostmap2D
 from mobile_manipulation.footprint_collision_checker import FootprintCollisionChecker
 from mobile_manipulation.robot_navigator import BasicNavigator, TaskResult
 
+from ament_index_python.packages import get_package_share_directory
+import os
+
 
 class RobotParking(Node):
     """
@@ -121,16 +124,15 @@ class RobotParking(Node):
     FREE_SPACE = 0
 
     # parking algorithm parameters
-    target_radius = 0.5 # meters
+    target_radius = 0.5  # meters
     theta_samples = 10  # number of random samples for x,y coordinates, where theta is the orientation from the target
     phi_samples = 10  # number of random samples for phi orientation, where phi is the orientation delta from theta
-    theta_delta_max = np.pi / 6.0 # radians, maximum orientation delta from the normal of the target pose
+    theta_delta_max = np.pi / 6.0  # radians, maximum orientation delta from the normal of the target pose
     phi_delta_max = np.pi / 3.0  # radians, maximum orientation variation of the mobile base with respect to the theta angle
 
     # Footprint dimensions
     robot_width = 0.9  # meters
     robot_length = 0.7  # meters
-
 
     def __init__(self, navigator: BasicNavigator):
         """
@@ -139,27 +141,24 @@ class RobotParking(Node):
         - initialize the NAV2 control API object
         - publish the optimal target goal computed from the target pose
 
-        Args: 
-            navigator (BasicNavigator): the NAV2 control API object
+        Parameters:
+        ---------- 
+            navigator (BasicNavigator): the NAV2 commander API object
 
         """
-        super().__init__("park_robot")
+        super().__init__("robot_parking_node")
 
         # Subscriber to target pose topic
-        self.subscription = self.create_subscription(
-            PoseStamped, "/target_pose", self.callback_target, 10
-        )
-        self.subscription  # prevent unused variable warning
+        # self.subscription = self.create_subscription(PoseStamped, "/target_pose", callback_target_pose, 10)
+        # self.subscription  # prevent unused variable warning
 
         # Publisher for the optimal target goal computed from the target pose
-        self.target_goal_pub = self.create_publisher(
-            PoseStamped, "/target_goal", 10)
+        self.target_goal_pub = self.create_publisher(PoseStamped, "/target_goal", 10)
 
         # NAV2 control API
         self.navigator = navigator
         self.checker = FootprintCollisionChecker()
-        self.map_frame = "map"
-        
+
         self.footprint = Polygon()
         self.compute_footprint_polygon()
 
@@ -169,106 +168,111 @@ class RobotParking(Node):
         self.initial_pose = PoseStamped()
 
         # Create the TF2 transform listener
+        self.map_frame = "map"
         self.robot_link_frame = "rear_mount"
         self.robot_center_frame = "mobile_robot_base_link"
         self.tf_buffer = Buffer()
         self.tf_listener = TransformListener(buffer=self.tf_buffer, node=self)
 
+        # find full path of custom behavior tree in scout_nav2
+        self.bt_xml_path = os.path.join(
+            get_package_share_directory("scout_nav2"),
+            "params",
+            "bt_nav2pose.xml",
+        )
+
         self.get_logger().info("Robot parking node started and initialized")
 
-        # launch the parking algorithm in a separate thread
-        park_thread = threading.Thread(
-            target=self.setup_navigation, daemon=True)
-        park_thread.start()
-
-    def callback_target(self, msg: PoseStamped):
-        """Subscriber callback to target pose
+    def update_target_pose(self, target_xyz: Point32, target_yaw: float):
+        """Update the target pose given the target position and orientation
 
         Parameters:
         ----------
-        msg : PoseStamped
-            the target pose message received from the topic
+        target_xyz : geometry_msgs.msg.Point32
+            the x,y,z coordinates of the target pose
+        target_yaw : float
+            the orientation angle of the target pose
 
         """
-        self.get_logger().info("Received target pose:\n%s" % msg.pose)
-        self.target_xyz = msg.pose.position
-        # get yaw angle from quaternion
-        roll, pitch, yaw = euler_from_quaternion(
-            [msg.pose.orientation.x, msg.pose.orientation.y, msg.pose.orientation.z, msg.pose.orientation.w]
-        )
-        self.target_yaw = yaw
-
+        self.target_xyz = target_xyz
+        self.target_yaw = target_yaw
         self.target_available = True
 
-    def setup_navigation(self):
+    def parking_algorithm_then_navigate(self):
         """Main function thread
 
         Main function of the parking script, which initializes the navigation and parking algorithm.
 
         """
-        while rclpy.ok():
-            # Set initial pose
-            self.get_initial_pose()
+        # Set initial pose
+        self.get_initial_pose()
 
-            # Activate navigation, if not autostarted. This should be called after setInitialPose()
-            # or this will initialize at the origin of the map and update the costmap with bogus readings.
-            # If autostart, you should `waitUntilNav2Active()` instead.
-            # self.navigator.lifecycleStartup()
+        # Activate navigation, if not autostarted. This should be called after setInitialPose()
+        # or this will initialize at the origin of the map and update the costmap with bogus readings.
+        # If autostart, you should `waitUntilNav2Active()` instead.
+        # self.navigator.lifecycleStartup()
 
-            # Wait for navigation to fully activate, since autostarting nav2
-            self.navigator.waitUntilNav2Active(localizer="robot_localization")
+        # Wait for navigation to fully activate, since autostarting nav2
+        self.navigator.waitUntilNav2Active(localizer="robot_localization")
 
-            global_costmap = self.navigator.getGlobalCostmap()
-            costmap = PyCostmap2D(global_costmap)
-            self.checker.setCostmap(costmap)
+        global_costmap = self.navigator.getGlobalCostmap()
+        costmap = PyCostmap2D(global_costmap)
+        self.checker.setCostmap(costmap)
 
-            # wait for first target to be available
-            while not self.target_available:
-                self.get_logger().info("Waiting for target pose...")
-                time.sleep(0.5)
-            self.target_available = False
+        # wait for first target to be available
+        while not self.target_available:
+            self.get_logger().info("Waiting for target pose...")
+            time.sleep(0.5)
+        self.target_available = False
 
-            # compute optimal parking pose
-            goal_pose = self.parking_algorithm()
+        # compute optimal parking pose
+        goal_pose = self.parking_algorithm()
 
-            # publish the goal pose computed from the target pose
-            if goal_pose is not None:
-                self.target_goal_pub.publish(goal_pose)
-            else:
-                # iterate again with the next target candidate
-                continue
+        # publish the goal pose computed from the target pose
+        if goal_pose is not None:
+            self.target_goal_pub.publish(goal_pose)
+        else:
+            # iterate again with the next target candidate
+            return
 
-            # navigate to the parking pose chosen by the parking algorithm
-            self.navigator.goToPose(goal_pose)
+        # navigate to the parking pose chosen by the parking algorithm
+        self.navigator.goToPose(pose=goal_pose, behavior_tree=self.bt_xml_path)
 
-            i = 0
-            while not self.navigator.isTaskComplete():
-                # Do something with the feedback
-                i = i + 1
-                feedback = self.navigator.getFeedback()
-                if feedback and i % 10 == 0:
-                    self.get_logger().info(
-                        "Estimated time of arrival: "
-                        + "{0:.2f}".format(
-                            Duration.from_msg(feedback.estimated_time_remaining).nanoseconds / 1e9
-                        )
-                        + " seconds."
+        # goToPose action definition
+        # https://github.com/ros-planning/navigation2/blob/main/nav2_msgs/action/NavigateToPose.action
+
+        i = 0
+        feedback = None
+        while not self.navigator.isTaskComplete():
+            # Do something with the feedback
+            feedback = self.navigator.getFeedback()
+            if feedback and i % 10 == 0:
+                self.get_logger().info(
+                    "Estimated time of arrival: "
+                    + "{0:.2f}".format(
+                        Duration.from_msg(feedback.estimated_time_remaining).nanoseconds / 1e9
                     )
+                    + " seconds."
+                )
+                self.get_logger().info("Distance remaining = {}".format(feedback.distance_remaining))
+            i = i + 1
 
-            # Do something depending on the return code
-            result = self.navigator.getResult()
-            if result == TaskResult.SUCCEEDED:
-                print("Goal succeeded!")
-            elif result == TaskResult.CANCELED:
-                print("Goal was canceled!")
-            elif result == TaskResult.FAILED:
-                print("Goal failed!")
-            else:
-                print("Goal has an unknown return status!")
+        # Do something depending on the return code
+        result = self.navigator.getResult()
+        if result == TaskResult.SUCCEEDED:
+            self.get_logger().info("Goal succeeded!")
+        elif result == TaskResult.CANCELED:
+            self.get_logger().info("Goal was canceled!")
+        elif result == TaskResult.FAILED:
+            self.get_logger().info("Goal failed!")
+        else:
+            self.get_logger().info("Goal has an unknown return status!")
 
-            # self.navigator.lifecycleShutdown()
+        self.get_logger().info("Distance remaining = {}".format(feedback.distance_remaining))
 
-    def parking_algorithm(self):
+        # self.navigator.lifecycleShutdown()
+
+    def parking_algorithm(self) -> PoseStamped:
         """Apply the parking algorithm to find the optimal parking pose
 
         Main function of the parking script, which computes the optimal parking pose given the target pose.
@@ -312,8 +316,8 @@ class RobotParking(Node):
         # self.get_logger().info(f"computed target metrics:\n{ranking_metrics}")
 
         # sort the target candidates by the corresponding rank metric
-        target_candidates = np.concatenate( (target_candidates, target_costs), axis=1)
-        target_candidates = np.concatenate( (target_candidates, ranking_metrics), axis=1)
+        target_candidates = np.concatenate((target_candidates, target_costs), axis=1)
+        target_candidates = np.concatenate((target_candidates, ranking_metrics), axis=1)
         # self.get_logger().debug(f"shape candidates with scores = {target_candidates.shape}")
 
         sorted_indices = np.argsort(target_candidates[:, -1])[::-1]
@@ -337,15 +341,14 @@ class RobotParking(Node):
             )
             path = self.navigator.getPath(self.initial_pose, goal_pose)
             if path is not None:
-                print("Path to goal pose is feasible! Metric rank = %f" % sorted_targets[i][-1])
+                self.get_logger().info("Path to goal pose is feasible! Metric rank = {}".format(sorted_targets[i][-1]))
                 break
             else:
-                print(
-                    "Attempt %d in checking path feasibility result in not feasible path!" % i)
+                self.get_logger().info(f"Attempt {i} in checking path feasibility result in not feasible path!")
                 i += 1
 
         if goal_pose is None:
-            self.get_logger().error("No feasible paths found within 10 attempts!")
+            self.get_logger().error(f"No feasible paths found within {max_iterations} attempts!")
 
         return goal_pose
 
@@ -399,7 +402,8 @@ class RobotParking(Node):
         )
 
         self.get_logger().info(
-            f"Initial pose set to: {self.initial_pose.pose.position.x:.3f} {self.initial_pose.pose.position.y:.3f} {euler[2]:.3f} "
+            f"Initial pose set to: {self.initial_pose.pose.position.x:.3f} \
+            {self.initial_pose.pose.position.y:.3f} {euler[2]:.3f} "
         )
 
     def sample_positions(self) -> list[float]:
@@ -417,7 +421,7 @@ class RobotParking(Node):
         position_samples = []
 
         for i in range(self.theta_samples):
-            # sample a random angle theta from -pi/6 to pi/6 
+            # sample a random angle theta from -pi/6 to pi/6
             theta = np.random.uniform(- self.theta_delta_max, self.theta_delta_max) + self.target_yaw
 
             # correct theta angle such that it is in the range -pi to pi
@@ -426,7 +430,7 @@ class RobotParking(Node):
             elif theta < -np.pi:
                 theta += 2 * np.pi
 
-            #TODO: target radius variable with theta angle and z elevation
+            # TODO: target radius variable with theta angle and z elevation
 
             # compute x,y coordinates
             x = self.target_xyz.x + self.target_radius * np.cos(theta)
@@ -491,9 +495,9 @@ class RobotParking(Node):
             x=x, y=y, theta=theta, footprint=self.footprint
         )
         if cost >= 252:
-            self.get_logger().info("Footprint cost is too high: %d" % cost)
+            self.get_logger().debug(f"Footprint cost is too high: {cost}")
         return cost
-    
+
     def get_tf(self, reference_frame: str, target_frame: str) -> TransformStamped:
         """Get the transform from the reference frame to the robot center
 
@@ -562,8 +566,10 @@ class RobotParking(Node):
         tf_mount_robot = self.get_tf(reference_frame=self.robot_link_frame, target_frame=self.robot_center_frame)
 
         # apply the transform to the x,y coordinates, to get the final pose of the robot, in the robot center frame
-        x = x + tf_mount_robot.transform.translation.x * np.cos(theta) - tf_mount_robot.transform.translation.y * np.cos(theta)
-        y = y + tf_mount_robot.transform.translation.y * np.sin(theta) + tf_mount_robot.transform.translation.x * np.sin(theta)
+        x = x + tf_mount_robot.transform.translation.x * \
+            np.cos(theta) - tf_mount_robot.transform.translation.y * np.cos(theta)
+        y = y + tf_mount_robot.transform.translation.y * \
+            np.sin(theta) + tf_mount_robot.transform.translation.x * np.sin(theta)
 
         pose = PoseStamped()
         pose.header.frame_id = self.map_frame
@@ -676,28 +682,3 @@ class RobotParking(Node):
             rank_metrics = np.append(rank_metrics, [[rank_metric]], axis=0)
 
         return rank_metrics
-
-
-# ROS2 main function
-def main(args=None):
-    rclpy.init(args=args)
-
-    navigator = BasicNavigator()
-    robot_parking = RobotParking(navigator)
-
-    # create a multi-threaded executor for both nodes
-    executor = rclpy.executors.MultiThreadedExecutor()
-    executor.add_node(robot_parking)
-
-    # asynchronous spin execution of the 2 nodes
-    # executor_thread = threading.Thread(target=executor.spin, daemon=True)
-    # executor_thread.start()
-    executor.spin()
-
-    # end node
-    robot_parking.destroy_node()
-    rclpy.shutdown()
-
-
-if __name__ == "__main__":
-    main()

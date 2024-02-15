@@ -8,7 +8,7 @@ def generate_launch_description():
     navigate_demo_node = Node(
         name="parking_demo",
         package="mobile_manipulation",
-        executable="park_robot.py",
+        executable="parking_demo.py",
         emulate_tty=True,
         output="screen",
     )
