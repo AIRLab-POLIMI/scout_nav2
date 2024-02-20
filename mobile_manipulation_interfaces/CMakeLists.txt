@@ -14,6 +14,8 @@ find_package(rosidl_default_generators REQUIRED)
 
 rosidl_generate_interfaces(${PROJECT_NAME}
 	"action/Parking.action"
+	"action/ButtonPress.action"
+	"action/ButtonFind.action"
 	DEPENDENCIES builtin_interfaces geometry_msgs std_msgs
 )
 
