@@ -1,26 +1,31 @@
 """ Navigate and button press demo
 
-Version 1: assuming target aruco spot already located, received as /target_pose pose topic, sent with rviz2 button in gui
-Version 2: rotate the arm with the camera on top, and spin around itself, until the target aruco spot is located.
-            Once the aruco is located, it will publish the estimated location on /target_pose pose topic, starting the demo
-
-0. given target_pose received with pose topic
-1. start park_robot.py --> parking_algorithm_then_navigate() with subscription callback to /target_pose
-2. computes parking pose, then navigate to /target_goal. Assuming target is reached, the demo continues, otherwise the demo fails
-3. starts button_press_demo code --> lookAroundForArucoMarkers searching motion --> buttonPressingSequence demo
+Rotate the arm with the camera on top, and spin around itself, until the target aruco spot is located.
+Once the aruco is located, it will publish the estimated location on /target_pose pose topic.
+Given the target pose, it computes the parking position.
+Then it navigates to the computed parking pose.
+Once the robot is successfully parked, it starts the button presser demo.
+It finds the button setup box nearby, and once the box is located, it presses the buttons one at a time.
 
 Architecture
 
 demo C++ client:
-- client sends request of high-level motion commands to the C++ button presser server
+- client sends request of high-level motion commands to the C++ button presser and button finder servers
 - client sends request of high-level parking and navigation commands to the python parking server
 
 button presser C++ server:
-- handle request for looking around for aruco markers and returns once they are found
-- handle request for pressing detected aruco markers and returns once the button pressing demo is finished
+- handle request for looking nearby for aruco markers and presses the buttons once the arucos are found
+- provides feedback on the buttons being found and pressed
+- final result includes percentage of completion in linear motions and total number of successful pose goals reached
+
+button finder C++ server:
+- handles request for looking around in the surroundings for a single unique aruco marker
+- provides feedback when marker is found and returns as a result the estimated pose
+- after aruco is found, the robot arm parks itself to the parking position
 
 parking python server:
-- handle request for computing parking position and navigation to the target goal using NAV2, returns once the target goal is reached or the navigation aborts
+- handle request for computing parking position and navigation to the target goal using NAV2,
+- returns once the target goal is reached or the navigation aborts
 
 """
 
@@ -66,7 +71,7 @@ def load_yaml(package_name, file_path):
 def generate_launch_description():
     load_base_arg = DeclareLaunchArgument(
         name="load_base",
-        default_value="false",
+        default_value="true",
         description="Load the mobile robot model and tower",
         choices=["true", "false"],
     )
@@ -266,9 +271,10 @@ def launch_setup(context, *args, **kwargs):
         #parameters=[{'use_sim_time': use_sim_time}]
     )
 
-    return LaunchDescription([
-        robot_parking_action_server,
+    return [
+        #robot_parking_action_server,
+        rviz2_node,
         button_presser_action_servers,
         parking_and_interact_client,
-        rviz2_node
-    ])
+        
+    ]
