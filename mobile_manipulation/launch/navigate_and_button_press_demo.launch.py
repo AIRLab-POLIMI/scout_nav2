@@ -211,7 +211,26 @@ def launch_setup(context, *args, **kwargs):
         "publish_transforms_updates": True,
         "publish_robot_description": True,
         "publish_robot_description_semantic": True,
-    }
+    }   
+    
+    rviz_file_name = "button_presser.rviz"
+
+    rviz_file = PathJoinSubstitution(
+        [FindPackageShare("igus_rebel_commander"), "rviz", rviz_file_name]
+    )
+
+    rviz2_node = Node(
+        package="rviz2",
+        executable="rviz2",
+        name="rviz2",
+        arguments=["-d", rviz_file],
+        parameters=[
+            robot_description,
+            robot_description_semantic,
+            kinematics,
+            ompl_planning_pipeline_config,
+        ],
+    )
 
     button_presser_action_servers = Node(
         package="igus_rebel_commander",
@@ -229,29 +248,7 @@ def launch_setup(context, *args, **kwargs):
                 "load_base": LaunchConfiguration("load_base"),
             }
         ],
-    )	
-
-    
-    rviz_file_name = "button_presser.rviz"
-
-    rviz_file = PathJoinSubstitution(
-        [FindPackageShare("igus_rebel_commander"), "rviz", rviz_file_name]
     )
-
-    rviz2_node = Node(
-        package="rviz2",
-        executable="rviz2",
-        name="rviz2",
-        output="log",
-        arguments=["-d", rviz_file],
-        parameters=[
-            robot_description,
-            robot_description_semantic,
-            kinematics,
-            ompl_planning_pipeline_config,
-        ],
-    )
-
 
     robot_parking_action_server = Node(
         package='mobile_manipulation',
@@ -272,9 +269,9 @@ def launch_setup(context, *args, **kwargs):
     )
 
     return [
-        #robot_parking_action_server,
+        robot_parking_action_server,
         rviz2_node,
-        button_presser_action_servers,
+        #button_presser_action_servers,
         parking_and_interact_client,
         
     ]

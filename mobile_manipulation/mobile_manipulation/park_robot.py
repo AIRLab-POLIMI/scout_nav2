@@ -12,7 +12,7 @@ Artificial Intelligence and Robotics Laboratory (AIRLab)
 # python imports
 import numpy as np
 import time
-import threading
+import os
 
 # ROS2 imports
 import rclpy
@@ -25,15 +25,12 @@ from tf2_ros.buffer import Buffer
 from tf2_ros import TransformException
 from tf2_ros.transform_listener import TransformListener
 from geometry_msgs.msg import TransformStamped
-
+from ament_index_python.packages import get_package_share_directory
 
 # NAV2 control API imports (ROS2-Iron Python bindings required)
 from mobile_manipulation.costmap_2d import PyCostmap2D
 from mobile_manipulation.footprint_collision_checker import FootprintCollisionChecker
 from mobile_manipulation.robot_navigator import BasicNavigator, TaskResult
-
-from ament_index_python.packages import get_package_share_directory
-import os
 
 
 class RobotParking(Node):
@@ -96,8 +93,8 @@ class RobotParking(Node):
             main function thread
         parking_algorithm():
             apply the parking algorithm to find the optimal parking pose
-        get_initial_pose():
-            get the initial pose of the robot from the TF2 transform
+        get_current_pose():
+            get the current pose of the robot from the TF2 transform
         compute_footprint_polygon(): 
             compute the footprint polygon of the robot given the width and length
         sample_positions():
@@ -205,7 +202,8 @@ class RobotParking(Node):
 
         """
         # Set initial pose
-        self.get_initial_pose()
+        self.initial_pose = self.get_current_pose()
+        self.navigator.setInitialPose(self.initial_pose)
 
         # Activate navigation, if not autostarted. This should be called after setInitialPose()
         # or this will initialize at the origin of the map and update the costmap with bogus readings.
@@ -295,12 +293,9 @@ class RobotParking(Node):
                     target_candidates, [[position[0], position[1], theta]], axis=0
                 )
 
-        self.get_logger().info(
-            f"initial target candidates number = : {target_candidates.shape[0]}"
-        )
+        self.get_logger().info(f"initial target candidates number = : {target_candidates.shape[0]}")
 
-        target_candidates, target_costs = self.filter_out_colliding_poses(
-            target_candidates)
+        target_candidates, target_costs = self.filter_out_colliding_poses(target_candidates)
 
         self.get_logger().info(f"reduced candidates number = {target_candidates.shape[0]}")
 
@@ -371,40 +366,41 @@ class RobotParking(Node):
         self.footprint.points[3].x = -self.robot_length / 2
         self.footprint.points[3].y = self.robot_width / 2
 
-    def get_initial_pose(self):
-        """Get the initial pose of the robot from the TF2 transform
+    def get_current_pose(self) -> PoseStamped:
+        """Get the current pose of the robot from the TF2 transform from map -> robot center
 
         First wait for the listener to connect to the TF2 data, then get the pose of the link frame relative to the base frame.
         It then sets the initial pose of the robot to the computed pose.
 
-        """
-        robot_transform = self.get_tf(
-            reference_frame=self.map_frame, target_frame=self.robot_center_frame
-        )
+        Returns:
+        -------
+        current_pose : PoseStamped
+            the current pose of the robot
 
+        """
+        robot_transform = self.get_tf(source_frame=self.robot_center_frame, target_frame=self.map_frame)
+
+        current_pose = PoseStamped()
         time_now = self.navigator.get_clock().now()
-        self.initial_pose.header.frame_id = self.map_frame
-        self.initial_pose.header.stamp = time_now.to_msg()
-        self.initial_pose.pose.position.x = robot_transform.transform.translation.x
-        self.initial_pose.pose.position.y = robot_transform.transform.translation.y
-        self.initial_pose.pose.position.z = robot_transform.transform.translation.z
-        self.initial_pose.pose.orientation = robot_transform.transform.rotation
-        self.navigator.setInitialPose(self.initial_pose)
+        current_pose.header.frame_id = self.map_frame
+        current_pose.header.stamp = time_now.to_msg()
+        current_pose.pose.position.x = robot_transform.transform.translation.x
+        current_pose.pose.position.y = robot_transform.transform.translation.y
+        current_pose.pose.position.z = robot_transform.transform.translation.z
+        current_pose.pose.orientation = robot_transform.transform.rotation
 
         # convert initial pose orientation from quaternion to euler angles
-        euler = euler_from_quaternion(
-            [
-                self.initial_pose.pose.orientation.x,
-                self.initial_pose.pose.orientation.y,
-                self.initial_pose.pose.orientation.z,
-                self.initial_pose.pose.orientation.w,
-            ]
-        )
+        euler = euler_from_quaternion([
+            current_pose.pose.orientation.x,
+            current_pose.pose.orientation.y,
+            current_pose.pose.orientation.z,
+            current_pose.pose.orientation.w,
+        ])
 
         self.get_logger().info(
-            f"Initial pose set to: {self.initial_pose.pose.position.x:.3f} \
-            {self.initial_pose.pose.position.y:.3f} {euler[2]:.3f} "
+            f"Current pose = {current_pose.pose.position.x:.3f} {current_pose.pose.position.y:.3f} {euler[2]:.3f}"
         )
+        return current_pose
 
     def sample_positions(self) -> list[float]:
         """ sample xy_samples random positions in a circle of radius target_radius centered in the target pose
@@ -491,36 +487,34 @@ class RobotParking(Node):
 
         """
 
-        cost = self.checker.footprintCostAtPose(
-            x=x, y=y, theta=theta, footprint=self.footprint
-        )
+        cost = self.checker.footprintCostAtPose(x=x, y=y, theta=theta, footprint=self.footprint)
         if cost >= 252:
             self.get_logger().debug(f"Footprint cost is too high: {cost}")
         return cost
 
-    def get_tf(self, reference_frame: str, target_frame: str) -> TransformStamped:
+    def get_tf(self, source_frame: str, target_frame: str) -> TransformStamped:
         """Get the transform from the reference frame to the robot center
 
         Parameters:
         ----------
-        reference_frame : str
-            the reference frame
+        source_frame : str
+            the source frame from which to compute the transform
         robot_frame : str
-            the target frame
+            the target frame of interest
 
         Returns:
         -------
         transform : geometry_msgs.msg.TransformStamped
-            the transform from the reference frame to the target frame
+            the transform from the source frame to the target frame
 
         """
 
         # Wait for the listener to connect to the TF2 data
         time_now = rclpy.time.Time()
         while not self.tf_buffer.can_transform(
-            reference_frame,
-            target_frame,
-            time_now,
+            source_frame=source_frame,
+            target_frame=target_frame,
+            time=time_now,
             timeout=rclpy.duration.Duration(seconds=0.1),
         ):
             self.get_logger().debug(
@@ -532,9 +526,9 @@ class RobotParking(Node):
         # Get the pose of the link frame relative to the base frame
         try:
             transform = self.tf_buffer.lookup_transform(
-                reference_frame,
-                target_frame,
-                rclpy.time.Time(),
+                source_frame=source_frame,
+                target_frame=target_frame,
+                time=rclpy.time.Time(),
                 timeout=rclpy.duration.Duration(seconds=0.1),
             )
         except TransformException as ex:
@@ -562,8 +556,8 @@ class RobotParking(Node):
 
         """
 
-        # get the transform from the robot reference frame to the robot center frame
-        tf_mount_robot = self.get_tf(reference_frame=self.robot_link_frame, target_frame=self.robot_center_frame)
+        # get the transform from the robot chosen frame link to the robot center frame
+        tf_mount_robot = self.get_tf(source_frame=self.robot_center_frame, target_frame=self.robot_link_frame)
 
         # apply the transform to the x,y coordinates, to get the final pose of the robot, in the robot center frame
         x = x + tf_mount_robot.transform.translation.x * \
@@ -665,9 +659,7 @@ class RobotParking(Node):
             # 10 meters is the maximum distance from the target pose
             distance_norm = 1.0 - distance / max_distance
 
-            orientation = np.arctan2(
-                y - self.target_xyz.y, x - self.target_xyz.x
-            )
+            orientation = np.arctan2(y - self.target_xyz.y, x - self.target_xyz.x)
             # delta from the base angle = direction from target pose to the new goal pose
             orientation_delta = np.abs(orientation - theta)
             # pi/2 is the maximum orientation angle delta
@@ -682,3 +674,57 @@ class RobotParking(Node):
             rank_metrics = np.append(rank_metrics, [[rank_metric]], axis=0)
 
         return rank_metrics
+
+    def compute_distance_error(self, pose: PoseStamped, expected_pose: PoseStamped) -> float:
+        """Compute the distance error between two poses
+
+        Parameters:
+        ----------
+        pose : PoseStamped
+            the current pose
+        expected_pose : PoseStamped
+            the expected pose
+
+        Returns:
+        -------
+        distance : float
+            the distance error between the two poses
+
+        """
+        distance = np.sqrt(
+            (pose.pose.position.x - expected_pose.pose.position.x) ** 2
+            + (pose.pose.position.y - expected_pose.pose.position.y) ** 2
+        )
+        return distance
+
+    def compute_heading_error(self, pose: PoseStamped, expected_pose: PoseStamped) -> float:
+        """Compute the heading error between two oriented poses
+
+        Parameters:
+        ----------
+        pose : PoseStamped
+            the current pose
+        expected_pose : PoseStamped
+            the expected pose given as the target pose
+
+        Returns:
+        -------
+        heading_delta : float
+            the heading error between the two poses orientations
+
+        """
+        # compute the heading error from the parking goal, assuming the same reference frame
+        yaw_pose = euler_from_quaternion([
+            pose.pose.orientation.x,
+            pose.pose.orientation.y,
+            pose.pose.orientation.z,
+            pose.pose.orientation.w,
+        ])[2]
+        yaw_expected = euler_from_quaternion([
+            expected_pose.pose.orientation.x,
+            expected_pose.pose.orientation.y,
+            expected_pose.pose.orientation.z,
+            expected_pose.pose.orientation.w,
+        ])[2]
+        heading_delta = np.abs(yaw_pose - yaw_expected)
+        return heading_delta

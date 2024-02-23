@@ -27,7 +27,7 @@ ParkAndInteract::ParkAndInteract(const rclcpp::NodeOptions &node_options) : Node
 
 	// Start main thread
 	// NOTE: choose which main function to execute for testing purposes
-	main_thread_ = std::thread(std::bind(&ParkAndInteract::main_thread_button_finder, this));
+	main_thread_ = std::thread(std::bind(&ParkAndInteract::main_thread_parking_only, this));
 	main_thread_.detach();
 }
 
@@ -50,6 +50,13 @@ void ParkAndInteract::main_thread_parking_only() {
 	RCLCPP_INFO(logger_, "Initializing main_thread_parking_only");
 	// sleep 5 seconds
 	std::this_thread::sleep_for(std::chrono::seconds(5));
+
+	while(!target_available) {
+		// wait for target pose to be available before proceeding
+		// target pose is received from /target_pose topic in this case
+		std::this_thread::sleep_for(std::chrono::milliseconds(100));
+	}
+
 	// send goal to parking action server
 	auto future_park_goal = sendParkingGoal();
 
@@ -70,7 +77,7 @@ void ParkAndInteract::main_thread_parking_only() {
 	}
 
 	// log string message from result
-	RCLCPP_INFO(logger_, "Result message: %s", result.result->nav2_result.c_str());
+	RCLCPP_INFO(logger_, "Parking demo terminated successfully");
 }
 
 /**
@@ -107,6 +114,7 @@ void ParkAndInteract::main_thread_button_finder(void) {
 		auto target_publisher = this->create_publisher<geometry_msgs::msg::PoseStamped>("/target_pose", 10);
 		target_publisher->publish(*target_pose);
 	}
+	RCLCPP_INFO(logger_, "Button finder demo terminated successfully");
 }
 
 /**
@@ -150,7 +158,73 @@ void ParkAndInteract::main_thread_button_presser(void) {
  * 		Each step assumes that the previous step has been completed successfully.
  */
 void ParkAndInteract::main_thread_demo(void) {
-	//TODO:
+	RCLCPP_INFO(logger_, "Initializing main_thread_demo");
+	// sleep 5 seconds
+	std::this_thread::sleep_for(std::chrono::seconds(5));
+
+	// STEP 1: send goal to button finder action server
+	auto future_finder_goal = sendButtonFinderGoal();
+
+	// wait for future to complete (goal result to be available)
+	future_finder_goal.wait();
+	auto finder_goal_handle = future_finder_goal.get();
+	if (!finder_goal_handle) {
+		RCLCPP_ERROR(logger_, "Button finder goal was rejected by server");
+		return;
+	}
+
+	auto finder_result_future = button_finder_action_client_->async_get_result(finder_goal_handle);
+	finder_result_future.wait();
+	auto result = finder_result_future.get();
+	if (result.code != rclcpp_action::ResultCode::SUCCEEDED) {
+		RCLCPP_ERROR(logger_, "Button finder action failed");
+		return;
+	}
+
+	while (!target_available) {
+		// ensure target pose is available before proceeding
+		std::this_thread::sleep_for(std::chrono::milliseconds(10));
+	}
+
+	// STEP 2: send goal to parking action server with the obtained target pose
+	auto future_park_goal = sendParkingGoal();
+
+	// wait for future to complete (goal result to be available)
+	future_park_goal.wait();
+	auto park_goal_handle = future_park_goal.get();
+	if (!park_goal_handle) {
+		RCLCPP_ERROR(logger_, "Parking goal was rejected by server");
+		return;
+	}
+
+	auto result_future_park = parking_action_client_->async_get_result(park_goal_handle);
+	result_future_park.wait();
+	auto result_park = result_future_park.get();
+	if (result_park.code != rclcpp_action::ResultCode::SUCCEEDED) {
+		RCLCPP_ERROR(logger_, "Parking goal failed");
+		return;
+	}
+
+	// STEP3: send goal to button presser action server
+	auto future_presser_goal = sendButtonPresserGoal();
+
+	// wait for future to complete (goal result to be available)
+	future_presser_goal.wait();
+	auto presser_goal_handle = future_presser_goal.get();
+	if (!presser_goal_handle) {
+		RCLCPP_ERROR(logger_, "Presser goal was rejected by server");
+		return;
+	}
+
+	auto result_future_presser = button_presser_action_client_->async_get_result(presser_goal_handle);
+	result_future_presser.wait();
+	auto result_presser = result_future_presser.get();
+	if (result_presser.code != rclcpp_action::ResultCode::SUCCEEDED) {
+		RCLCPP_ERROR(logger_, "Button presser goal failed");
+		return;
+	}
+
+	RCLCPP_INFO(logger_, "Entire demo terminated successfully!");
 }
 
 /**
@@ -160,7 +234,7 @@ void ParkAndInteract::main_thread_demo(void) {
 std::shared_future<GoalHandleParking::SharedPtr> ParkAndInteract::sendParkingGoal(void) {
 	// wait for action server to be up and running
 	while (!parking_action_client_->wait_for_action_server(std::chrono::milliseconds(100))) {
-		RCLCPP_INFO(logger_, "Waiting for action server to be up...");
+		RCLCPP_INFO(logger_, "Waiting for parking action server to be up...");
 		std::this_thread::sleep_for(std::chrono::milliseconds(200));
 	}
 
@@ -194,9 +268,9 @@ std::shared_future<GoalHandleParking::SharedPtr> ParkAndInteract::sendParkingGoa
  */
 void ParkAndInteract::parkingGoalResponseCallback(const GoalHandleParking::SharedPtr &goal_handle) {
 	if (!goal_handle) {
-		RCLCPP_ERROR(logger_, "Goal was rejected by server");
+		RCLCPP_ERROR(logger_, "Parking goal was rejected by server");
 	} else {
-		RCLCPP_INFO(logger_, "Goal accepted by server, waiting for result");
+		RCLCPP_INFO(logger_, "Parking goal accepted by server, waiting for result");
 	}
 }
 
@@ -227,21 +301,29 @@ void ParkAndInteract::parkingFeedbackCallback(GoalHandleParking::SharedPtr /*goa
 void ParkAndInteract::parkingResultCallback(const GoalHandleParking::WrappedResult &result) {
 	switch (result.code) {
 	case rclcpp_action::ResultCode::SUCCEEDED:
-		RCLCPP_INFO(logger_, "Goal succeeded");
+		RCLCPP_INFO(logger_, "Parking succeeded");
 		break;
 	case rclcpp_action::ResultCode::ABORTED:
-		RCLCPP_INFO(logger_, "Goal was aborted");
+		RCLCPP_INFO(logger_, "Parking goal was aborted");
 		return;
 	case rclcpp_action::ResultCode::CANCELED:
-		RCLCPP_INFO(logger_, "Goal was canceled");
+		RCLCPP_INFO(logger_, "Parking goal was canceled");
 		return;
 	default:
-		RCLCPP_ERROR(logger_, "Unknown result code");
+		RCLCPP_ERROR(logger_, "Unknown parking result code");
 		return;
 	}
 
 	// log string message from result
 	RCLCPP_INFO(logger_, "Result message: %s", result.result->nav2_result.c_str());
+	geometry_msgs::msg::Quaternion q = result.result->final_position.pose.orientation;
+	float theta = atan2(2 * (q.w * q.z + q.x * q.y), 1 - 2 * (q.y * q.y + q.z * q.z));
+	RCLCPP_INFO(logger_, "Final position: (x,y,theta) = (%.3f, %.3f, %.3f)",
+				result.result->final_position.pose.position.x,
+				result.result->final_position.pose.position.y,
+				theta);
+	RCLCPP_INFO(logger_, "Distance error: %.3f", result.result->distance_error);
+	RCLCPP_INFO(logger_, "Heading error: %.3f", result.result->heading_error);
 }
 
 /**
@@ -251,7 +333,7 @@ void ParkAndInteract::parkingResultCallback(const GoalHandleParking::WrappedResu
 std::shared_future<GoalHandleButtonFinder::SharedPtr> ParkAndInteract::sendButtonFinderGoal(void) {
 	// wait for action server to be up and running
 	while (!button_finder_action_client_->wait_for_action_server(std::chrono::milliseconds(100))) {
-		RCLCPP_INFO(logger_, "Waiting for action server to be up...");
+		RCLCPP_INFO(logger_, "Waiting for button finder action server to be up...");
 		std::this_thread::sleep_for(std::chrono::milliseconds(200));
 	}
 
@@ -280,9 +362,9 @@ std::shared_future<GoalHandleButtonFinder::SharedPtr> ParkAndInteract::sendButto
  */
 void ParkAndInteract::buttonFinderGoalResponseCallback(const GoalHandleButtonFinder::SharedPtr &goal_handle) {
 	if (!goal_handle) {
-		RCLCPP_ERROR(logger_, "Goal was rejected by server");
+		RCLCPP_ERROR(logger_, "Button finder goal was rejected by server");
 	} else {
-		RCLCPP_INFO(logger_, "Goal accepted by server, waiting for result");
+		RCLCPP_INFO(logger_, "Button finder goal accepted by server, waiting for result");
 	}
 }
 
@@ -304,6 +386,7 @@ void ParkAndInteract::buttonFinderFeedbackCallback(GoalHandleButtonFinder::Share
 void ParkAndInteract::buttonFinderResultCallback(const GoalHandleButtonFinder::WrappedResult &result) {
 	RCLCPP_INFO(logger_, "Result: target acquired. x = %.3f, y = %.3f, z = %.3f", result.result->target.pose.position.x,
 				result.result->target.pose.position.y, result.result->target.pose.position.z);
+	RCLCPP_INFO(logger_, "Result: target frame_id = %s", result.result->target.header.frame_id.c_str());
 	target_pose = std::make_shared<geometry_msgs::msg::PoseStamped>(result.result->target);
 	target_available = true;
 }
@@ -315,7 +398,7 @@ void ParkAndInteract::buttonFinderResultCallback(const GoalHandleButtonFinder::W
 std::shared_future<GoalHandleButtonPresser::SharedPtr> ParkAndInteract::sendButtonPresserGoal(void) {
 	// wait for action server to be up and running
 	while (!button_presser_action_client_->wait_for_action_server(std::chrono::milliseconds(100))) {
-		RCLCPP_INFO(logger_, "Waiting for action server to be up...");
+		RCLCPP_INFO(logger_, "Waiting for button presser action server to be up...");
 		std::this_thread::sleep_for(std::chrono::milliseconds(200));
 	}
 
@@ -345,9 +428,9 @@ std::shared_future<GoalHandleButtonPresser::SharedPtr> ParkAndInteract::sendButt
  */
 void ParkAndInteract::buttonPresserGoalResponseCallback(const GoalHandleButtonPresser::SharedPtr &goal_handle) {
 	if (!goal_handle) {
-		RCLCPP_ERROR(logger_, "Goal was rejected by server");
+		RCLCPP_ERROR(logger_, "Button presser goal was rejected by server");
 	} else {
-		RCLCPP_INFO(logger_, "Goal accepted by server, waiting for result");
+		RCLCPP_INFO(logger_, "Button presser goal accepted by server, waiting for result");
 	}
 }
 

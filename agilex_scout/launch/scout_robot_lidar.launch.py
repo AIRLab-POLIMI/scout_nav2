@@ -1,4 +1,3 @@
-import os
 from math import pi
 
 from launch import LaunchDescription
@@ -77,7 +76,7 @@ def generate_launch_description():
 		output='screen',
 		parameters=[{"use_sim_time": use_sim_time}, scout_description],
 		arguments=[scout_description_file],
-		#remappings=[('/robot_description', '/scout/robot_description')]
+		remappings=[('/robot_description', '/scout/robot_description')]
 	)
 
 

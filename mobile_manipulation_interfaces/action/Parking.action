@@ -3,6 +3,9 @@ geometry_msgs/PoseStamped goal_pose
 ---
 # Result
 string nav2_result
+geometry_msgs/PoseStamped final_position
+float32 heading_error
+float32 distance_error
 ---
 # Feedback
 float32 distance_remaining

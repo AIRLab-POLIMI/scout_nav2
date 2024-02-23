@@ -119,12 +119,11 @@ def generate_launch_description():
 		# arguments=[scout_description_file],
 		remappings=[
 			("/joint_states", "/scout/joint_states"),
-			# remappings robot description required only when mobile robot is loaded with robotic arm in gazebo environment
-		#	("/robot_description", "/scout/robot_description"),
+			("/robot_description", "/scout/robot_description"),
 		],
 	)
 
-	# spawn Scout robot from xacro description published in /robot_description topic
+	# spawn Scout robot from xacro description published in robot description topic
 	spawn_robot_urdf_node = Node(
 		name="spawn_robot_urdf",
 		package="ros_gz_sim",
@@ -133,7 +132,7 @@ def generate_launch_description():
 			"-name",
 			"scout_v2",
 			"-topic",
-			"/robot_description",
+			"/scout/robot_description",
 			"-x",
 			"0",
 			"-y",
@@ -212,8 +211,8 @@ def generate_launch_description():
 			'angle_max': pi,
 			'angle_increment': pi / 180.0 / 2.0,
 			'scan_time': 1/10, # 10Hz
-			'range_min': 0.5,
-			'range_max': 50.0,
+			'range_min': 0.1,
+			'range_max': 100.0,
 			'use_inf': True,
 		}],
 		condition=IfCondition(PythonExpression(["'", LaunchConfiguration("lidar_type"), "'", " == '3d'"]))

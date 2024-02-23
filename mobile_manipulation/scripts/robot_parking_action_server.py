@@ -5,6 +5,8 @@ import rclpy
 from rclpy.action import ActionServer
 from rclpy.node import Node
 from tf_transformations import euler_from_quaternion
+from geometry_msgs.msg import PoseStamped, Point32
+import tf2_geometry_msgs
 
 # custom action for parking
 from mobile_manipulation_interfaces.action import Parking
@@ -68,21 +70,11 @@ class RobotParkingActionServer(Node):
         req = goal_handle.request
         goal_pose = req.goal_pose
 
-        # Extract position data from target_pose
-        target_xyz = goal_pose.pose.position
-        roll, pitch, yaw = euler_from_quaternion(
-            [goal_pose.pose.orientation.x, goal_pose.pose.orientation.y,
-             goal_pose.pose.orientation.z, goal_pose.pose.orientation.w]
-        )
-
-        self.get_logger().info("Server: received target: x = {:.3f}; y = {:.3f}; yaw = {:.3f}"
-                               .format(goal_pose.pose.position.x, goal_pose.pose.position.y, yaw))
-
-        # update target pose in the parking algorithm
-        self.parking_node.update_target_pose(target_xyz, yaw)
+        self.update_parking_goal_pose(goal_pose)
 
         # Set initial pose
-        self.parking_node.get_initial_pose()
+        self.initial_pose = self.parking_node.get_current_pose()
+        self.parking_node.navigator.setInitialPose(self.initial_pose)
 
         # Activate navigation, if not autostarted. This should be called after setInitialPose()
         # or this will initialize at the origin of the map and update the costmap with bogus readings.
@@ -139,14 +131,24 @@ class RobotParkingActionServer(Node):
                 self.get_logger().debug("Distance remaining = {}".format(feedback.distance_remaining))
             i = i + 1
 
+        distance_error = feedback.distance_remaining
+
         # publish last feedback data to the action client
         feedback_msg = Parking.Feedback()
         feedback_msg.parking_goal = goal_pose.pose
-        feedback_msg.distance_remaining = feedback.distance_remaining
+        feedback_msg.distance_remaining = distance_error
         goal_handle.publish_feedback(feedback_msg)
 
+        # get current robot position
+        current_pose = self.parking_node.get_current_pose()
+
+        # compute distance and heading error from the parking goal, assuming the same reference frame
+        distance_error = self.parking_node.compute_distance_error(pose=current_pose, expected_pose=goal_pose)
+        heading_error = self.parking_node.compute_heading_error(pose=current_pose, expected_pose=goal_pose)
+
         # log final feedback data
-        self.get_logger().debug("Distance remaining = {}".format(feedback.distance_remaining))
+        self.get_logger().info("Distance Error = {}".format(distance_error))
+        self.get_logger().info("Heading Error = {}".format(heading_error))
 
         # get result from the navigation task, and publish result to the action client
         result = self.parking_node.navigator.getResult()
@@ -165,10 +167,33 @@ class RobotParkingActionServer(Node):
 
         self.get_logger().info(result_string)
 
+        # create result message to be sent to the action client
         result_msg = Parking.Result()
         result_msg.nav2_result = result_string
+        result_msg.distance_error = distance_error
+        result_msg.heading_error = heading_error
+        result_msg.final_position = current_pose
 
         return result_msg
+    
+    def update_parking_goal_pose(self, goal_pose: PoseStamped):
+
+        # transform the goal pose to the map frame
+        transform = self.parking_node.get_tf(source_frame=goal_pose.header.frame_id, 
+                                             target_frame="map")
+        
+        goal_pose_tf = tf2_geometry_msgs.do_transform_pose(goal_pose.pose, transform)
+
+        target_xyz = goal_pose_tf.position
+        target_quat = goal_pose_tf.orientation
+        roll, pitch, yaw = euler_from_quaternion([target_quat.x, target_quat.y, target_quat.z, target_quat.w])
+
+        self.get_logger().info("Server: received target: x = {:.3f}; y = {:.3f}, theta = {:.3f}"
+                               .format(goal_pose_tf.position.x, goal_pose_tf.position.y, yaw))
+        self.get_logger().info("Server: received target in frame_id: {}".format(goal_pose.header.frame_id))
+
+        # update target pose in the parking algorithm
+        self.parking_node.update_target_pose(target_xyz, yaw)
 
 
 def main(args=None):
