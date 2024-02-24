@@ -5,11 +5,12 @@ This package offers the configuration files and launch files for the navigation 
 Launch files:
 - `ros2 launch nav2.launch.py`: launches the entire navigation stack.
 
-### Parking node: optimal parking pose computation
+Parameters:
+- `simulation`: true if running in simulation with gazebo, false if launching the real AgileX Scout robot with real sensors
+- `slam`: True if you want to use SLAM toolbox for map creation, False if you want to do localization + navigation
+- `localization`: choose localization algorithm, between `amcl` or `slam_toolbox`
 
-Given a target position, the parking node calculates the "optimal" goal position to be reached according to my ranking algorithm. The algorithm takes into account both the costmap (and therefore the presence of nearby obstacles), the cartesian distance from the goal, and the orientation of the robot. It is designed in such a way that the robot ends up orienting itself with the rear part facing the target, thus leaving enough maneuvering space for the arm to move towards the target position.
-
-### Navigation stack:
+## Navigation stack:
 
 The navigation stack is based on the package  `nav2_bringup` from the [Navigation2](https://navigation.ros.org/) stack. The `nav2.launch.py` launch file launches the following nodes in a composable environment (allowing faster intra-process communication):
 - `nav2_controller_server`: the controller server node, with a goal checker, a progress checker and a MPPI controller (local planner).

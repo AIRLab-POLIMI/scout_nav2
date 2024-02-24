@@ -1,16 +1,19 @@
-# scout_nav2
+# AgileX Scout Navigation with Nav2 and Simulation with Ignition Gazebo v6 (Fortress)
 
-AgileX Scout robot for navigation with Nav2, in the context of mobile manipulation - ROS2
+Autonomous navigation using the AgileX Scout mobile wheeled robot using NAV2 & ROS2
 
-Author: Simone Giampà
+Author: __Simone Giampà__
 
-Project realized at Politecnico di Milano as Master's Thesis in Computer Science and Engineering
+Project realized at __Politecnico di Milano__ as part of my Master's Thesis project
+
+Master's Degree in: __Computer Science and Engineering__
 
 Academic Year: 2023/2024
 
 ## Description
 
-This repository contains the configuration files and launch files for the navigation of the AgileX Scout robot with Nav2. It also contains the configuration files for the simulation of the robot in Gazebo.
+This repository contains the configuration files and launch files for performing autonomous navigation eith the AgileX Scout robot using Nav2.
+It also contains the configuration files for the simulation of the robot in Ignition Gazebo v6 (Fortress).
 
 ## Installation
 
@@ -27,26 +30,38 @@ This repository contains the configuration files and launch files for the naviga
 
 Build the package with `colcon build`.
 
-### Usage
+## Usage
 
-1. First launch the robot with the lidar sensor, either in simulation or the real robot:
+The robot can be tested in both simulated and real environments. The following steps are required to launch the robot in both environments.
+Several parameters are provided in the launch files to customize the robot's behavior and the navigation stack.
 
-   * To launch the simulation of the robot in Gazebo, run the following command:
+### Usage in simulation environment with Gazebo
 
-`ros2 launch agilex_scout simulate_control_gazebo.launch.py lidar_type:=<3d|2d> rviz:=<true|false>`
+To launch the simulation of the robot in Gazebo, along with NAV2, run the following command:
 
-> - lidar_type: 3d for a 3D lidar (pointcloud2), 2d for a 2D lidar (laserscan)
-> - rviz: true to launch rviz, false to not launch rviz gui
+```
+ros2 launch agilex_scout simulate_control_gazebo.launch.py lidar_type:=<3d|2d> rviz:=<true|false>
 
-  * To launch the real scout robot with the lidar sensor and the laserscan conversion node, run the following command:
+ros2 launch scout_nav2 nav2.launch.py simulation:=true slam:=<True|False> localization:=<amcl|slam_toolbox>
+```
 
-`ros2 launch agilex_scout scout_robot_lidar.launch.py load_gazebo:=<true|false>`
+Parameters:
+- `lidar_type`: 3d for a 3D lidar (pointcloud2), 2d for a 2D lidar (laserscan)
+- `rviz`: true if launching rviz, false if launching only the gazebo simulation
+  
 
-> - load_gazebo: true to load also the gazebo simulation environment, false to load only the RViz display gui
+### Usage with the real robot
 
-2. Second step: launch the entire navigation2 stack, run the following command:
+To launch the real scout robot with the lidar sensor and the pointcloud-to-laserscan conversion node, run the following command:
 
-`ros2 launch scout_nav2 nav2.launch.py simulation:=<true|false> slam:=<True|False>`
+```
+ros2 launch agilex_scout scout_robot_lidar.launch.py 
 
-> - slam: True if you want to use SLAM toolbox for map creation, False if you want to use AMCL for localizaion + nav2 for mapping
-> - simulation: true if running in simulation with gazebo, false if launching the real AgileX Scout robot with real sensors
+ros2 launch scout_nav2 nav2.launch.py simulation:=false slam:=<True|False> localization:=<amcl|slam_toolbox>
+```
+
+Parameters:
+
+- `slam`: True if you want to use SLAM toolbox for map creation, False if you want to do localization + navigation
+- `simulation`: true if running in simulation with gazebo, false if launching the real AgileX Scout robot with real sensors
+- `localization`: choose localization algorithm, between `amcl` or `slam_toolbox`
