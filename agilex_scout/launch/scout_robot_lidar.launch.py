@@ -17,22 +17,6 @@ from launch.substitutions import (
 
 def generate_launch_description():
 
-	load_gazebo_arg = DeclareLaunchArgument(
-		name="load_gazebo",
-		default_value="false",
-		description="load gazebo xacro file",
-		choices=["true", "false"],
-	)
-
-	use_sim_time = LaunchConfiguration("use_sim_time")
-	use_sim_time_arg = DeclareLaunchArgument(
-		name="use_sim_time",
-		default_value="false",
-		description="Use simulation (Gazebo) clock if true",
-		choices=["false"],
-	)
-
-
 	# scout base ros2 node launcher
 	scout_base_node = IncludeLaunchDescription(
 		PythonLaunchDescriptionSource([
@@ -43,7 +27,7 @@ def generate_launch_description():
 		]),
 		launch_arguments={
 			"odom_topic_name": "/odometry",
-			"use_sim_time": use_sim_time,
+			"use_sim_time": "false",
 			"base_frame": "base_footprint",
 			"odom_frame": "odom"
 		}.items()
@@ -74,7 +58,7 @@ def generate_launch_description():
 		executable='robot_state_publisher',
 		name='robot_state_publisher_scout',
 		output='screen',
-		parameters=[{"use_sim_time": use_sim_time}, scout_description],
+		parameters=[{"use_sim_time": False}, scout_description],
 		arguments=[scout_description_file],
 		remappings=[('/robot_description', '/scout/robot_description')]
 	)
@@ -163,8 +147,6 @@ def generate_launch_description():
 	#)
 
 	return LaunchDescription([
-		load_gazebo_arg,
-		use_sim_time_arg,
 		scout_base_node,
 		scout_robot_state_publisher_node,
 		lidar_node,

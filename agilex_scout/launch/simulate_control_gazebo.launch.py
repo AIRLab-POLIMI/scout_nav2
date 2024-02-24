@@ -22,14 +22,6 @@ from launch.launch_description_sources import PythonLaunchDescriptionSource
 def generate_launch_description():
 	# Launch configuration variables specific to simulation
 
-	use_sim_time = LaunchConfiguration("use_sim_time")
-	use_sim_time_arg = DeclareLaunchArgument(
-		name="use_sim_time",
-		default_value="true",
-		description="Use simulation (Gazebo) clock if true",
-		choices=["true"],
-	)
-
 	# where to get odometry information from
 	# NOTE: odometry source wheel encoders doesn't work for a skid steering kinematics robot yet
 	odometry_source_arg = DeclareLaunchArgument(
@@ -115,7 +107,7 @@ def generate_launch_description():
 		package="robot_state_publisher",
 		executable="robot_state_publisher",
 		output="screen",
-		parameters=[use_sim_time, scout_description],
+		parameters=[{"use_sim_time": True}, scout_description],
 		# arguments=[scout_description_file],
 		remappings=[
 			("/joint_states", "/scout/joint_states"),
@@ -159,7 +151,7 @@ def generate_launch_description():
 		package="rviz2",
 		executable="rviz2",
 		arguments=["-d", rviz2_file],
-		parameters=[use_sim_time, scout_description],
+		parameters=[{"use_sim_time": True}, scout_description],
 		condition=IfCondition(LaunchConfiguration("rviz")),
 	)
 
@@ -185,7 +177,7 @@ def generate_launch_description():
 			"--child-frame-id",
 			"map",
 		],
-		parameters=[use_sim_time]
+		parameters=[{"use_sim_time": True}]
 	)
 
 	# simulate robot remote control
@@ -220,7 +212,6 @@ def generate_launch_description():
 
 	return LaunchDescription(
 		[
-			use_sim_time_arg,
 			odometry_source_arg,
 			rviz_arg,
 			lidar_type_arg,
