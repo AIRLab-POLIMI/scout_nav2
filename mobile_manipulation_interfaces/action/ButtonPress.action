@@ -1,8 +1,0 @@
-# Request
----
-# Result
-int16 n_goals_completed
-float32 percent_completion
----
-# Feedback
-string status
