@@ -15,7 +15,7 @@ def generate_launch_description():
         name="slam",
         default_value="False",
         description="Launch SLAM or launch localization and navigation",
-        choices=["True", "False"],
+        choices=["True", "False", "true", "false"],
     )
 
     localization_arg = DeclareLaunchArgument(
@@ -29,7 +29,7 @@ def generate_launch_description():
         name="simulation",
         default_value="true",
         description="Launch simulation with gazebo or launch real robot navigation",
-        choices=["true", "false"],
+        choices=["True", "False", "true", "false"],
     )
 
     return LaunchDescription(
@@ -49,14 +49,17 @@ def launch_setup(context, *args, **kwargs):
     nav2_launch_file = os.path.join(nav2_bringup_dir, "launch", "bringup_launch.py")
     scout_nav2_dir = get_package_share_directory("scout_nav2")
 
+    slam = LaunchConfiguration("slam").perform(context).lower()
+    simulation = LaunchConfiguration("simulation").perform(context).lower()
+
     # full configuration parameters file
     # choose map to load depending on test environment
-    if LaunchConfiguration("simulation").perform(context) == "true":
+    if simulation == "true":
         # Gazebo simulation
         map_file = "warehouse/map_slam_v2.yaml"
         use_sim_time = "true"
 
-        if (LaunchConfiguration("slam").perform(context) == "True"):
+        if slam == "true":
             # SLAM for localization and mapping
             params_file_name = "sim_lidar3d_amcl.yaml"
             # ignore localization argument
@@ -69,12 +72,12 @@ def launch_setup(context, *args, **kwargs):
                 # AMCL localization
                 params_file_name = "sim_lidar3d_amcl.yaml"
 
-    elif LaunchConfiguration("simulation").perform(context) == "false":
+    else:
         # Real robot
         map_file = "airlab/map_lidar3d_v3.yaml"
         use_sim_time = "false"
 
-        if (LaunchConfiguration("slam").perform(context) == "True"):
+        if slam == "true":
             # SLAM for localization and mapping
             params_file_name = "scout_amcl.yaml"
             # ignore localization argument
@@ -98,10 +101,10 @@ def launch_setup(context, *args, **kwargs):
         launch_arguments={
             "use_sim_time": use_sim_time,
             "params_file": nav2_params_file,  # full configuration parameters
-            "slam": LaunchConfiguration("slam"),  # slam activated
+            "slam": "True",  # slam activated
             "map": "",  # no map,
         }.items(),
-        condition=IfCondition(PythonExpression([LaunchConfiguration("slam"), " == True"])),
+        condition=IfCondition(PythonExpression(["'" , LaunchConfiguration("slam"), "' == 'true'"]))
     )
 
     # if slam is disabled --> localization + navigation
@@ -111,11 +114,12 @@ def launch_setup(context, *args, **kwargs):
             "use_sim_time": use_sim_time,
             "params_file": nav2_params_file,  # full configuration parameters
             # localization + navigation
-            "slam": LaunchConfiguration("slam"),
+            "slam": "False",
             "map": map_yaml_file,  # map file
             "localization": LaunchConfiguration("localization")  # amcl or slam_toolbox
         }.items(),
-        condition=IfCondition(PythonExpression([LaunchConfiguration("slam"), " == False"])),
+        #condition=IfCondition(PythonExpression([LaunchConfiguration("slam"), " == False"])),
+        condition=IfCondition(PythonExpression(["'", LaunchConfiguration("slam") , "' == 'false'"]))
     )
 
     # static transform from world to map
