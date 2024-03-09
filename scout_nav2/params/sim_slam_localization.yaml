@@ -103,20 +103,21 @@ controller_server:
             yaw_goal_tolerance: 0.15
         FollowPath:
             # combination of 2 local planners: rotation shim controller and MPPI controller
-            plugin: "nav2_rotation_shim_controller::RotationShimController"
-            primary_controller: "nav2_mppi_controller::MPPIController"
+            #plugin: "nav2_rotation_shim_controller::RotationShimController"
+            #primary_controller: "nav2_mppi_controller::MPPIController"
 
             # Rotation shim controller parameters
             # Backup controller for rotation in place when angular heading error is larger than threshold
             # https://navigation.ros.org/configuration/packages/configuring-rotation-shim-controller.html
-            angular_dist_threshold: 0.5 # (radians) threshold for switching to rotation in place
-            forward_sampling_distance: 0.5
-            rotate_to_heading_angular_vel: 1.0
-            max_angular_accel: 2.0
-            simulate_ahead_time: 3.0
+            #angular_dist_threshold: 0.5 # (radians) threshold for switching to rotation in place
+            #forward_sampling_distance: 0.5
+            #rotate_to_heading_angular_vel: 1.0
+            #max_angular_accel: 2.0
+            #simulate_ahead_time: 3.0
 
             # MPPI Controller parameters: local planner (controller)
             # https://navigation.ros.org/configuration/packages/configuring-mppic.html
+            plugin: "nav2_mppi_controller::MPPIController"
             time_steps: 50
             model_dt: 0.1
             batch_size: 1000
@@ -181,7 +182,7 @@ controller_server:
             ObstaclesCritic:
                 enabled: true
                 cost_power: 1
-                repulsion_weight: 1.4 # default 1.5
+                repulsion_weight: 1.5 # default 1.5
                 critical_weight: 20.0
                 consider_footprint: true
                 collision_cost: 10000.0
@@ -224,41 +225,54 @@ local_costmap:
             robot_base_frame: mobile_robot_base_link
             map_topic: /map
             rolling_window: true
-            width: 8
-            height: 8
+            width: 12
+            height: 12
             resolution: 0.05
             footprint: "[ [0.45, 0.35], [0.45, -0.35], [-0.45, -0.35], [-0.45, 0.35] ]"
             footprint_padding: 0.02
             lethal_cost_threshold: 100
             track_unknown_space: true
 
-            plugins: ["voxel_layer", "denoise_layer", "inflation_layer"]
+            plugins: ["spatio_temporal_voxel_layer", "denoise_layer", "inflation_layer"]
 
-            voxel_layer:
-                plugin: "nav2_costmap_2d::VoxelLayer"
-                enabled: True
-                footprint_clearing_enabled: true
-                publish_voxel_map: False
-                origin_z: 0.0
-                z_resolution: 0.05
-                z_voxels: 16
-                unknown_threshold: 15
-                mark_threshold: 0
-                observation_sources: pointcloud
-                combination_method: 1
-                pointcloud: # no frame set, uses frame from message
+            spatio_temporal_voxel_layer:
+                plugin: "spatio_temporal_voxel_layer/SpatioTemporalVoxelLayer"
+                enabled: true
+                voxel_decay: 5.0 # seconds if linear, e^n if exponential
+                decay_model: 0 # 0=linear, 1=exponential, -1=persistent
+                voxel_size: 0.05 # meters
+                track_unknown_space: false # default space is known
+                mark_threshold: 1 # voxel height
+                update_footprint_enabled: true
+                combination_method: 1 # 1=max, 0=override
+                origin_z: 0.0 # meters
+                publish_voxel_map: false # default off
+                transform_tolerance: 0.3 # seconds
+                mapping_mode: false # default off, saves map not for navigation
+                map_save_duration: 60.0 # default 60s, how often to autosave
+                observation_sources: lidar_mark_clear
+                lidar_mark_clear:
+                    enabled: true
+                    data_type: PointCloud2
                     topic: /points
-                    observation_persistence: 1.0
-                    expected_update_rate: 10.0
-                    max_obstacle_height: 1.5
-                    min_obstacle_height: 0.1
-                    obstacle_max_range: 12.0
-                    obstacle_min_range: 0.0
-                    raytrace_max_range: 15.0
-                    raytrace_min_range: 0.0
-                    clearing: True
-                    marking: True
-                    data_type: "PointCloud2"
+                    marking: true
+                    clearing: true
+                    obstacle_range: 12.0 # meters
+                    min_obstacle_height: 0.15 # default 0, meters
+                    max_obstacle_height: 1.5 # default 3, meters
+                    expected_update_rate: 10.0 # default 0, if not updating at this rate at least, remove from buffer
+                    observation_persistence: 0.0 # default 0, use all measurements taken during now-value, 0=latest
+                    inf_is_valid: false # default false, for laser scans
+                    filter: "voxel" # default passthrough, apply "voxel", "passthrough", or no filter to sensor data
+                    voxel_min_points: 0 # default 0, minimum points per voxel for voxel filter
+                    clear_after_reading: true # default false, clear the buffer after the layer gets readings from it
+                    max_z: 3.0 # default 0, meters
+                    min_z: 0.0 # default 10, meters
+                    vertical_fov_angle: 0.7 # default 0.7, radians. For 3D lidars it's the symmetric FOV about the planar axis.
+                    vertical_fov_padding: 0.05 # 3D Lidar only. Default 0, in meters
+                    horizontal_fov_angle: 6.29 # 3D lidar scanners like the VLP16 have 360 deg horizontal FOV.
+                    decay_acceleration: 5.0 # default 0, 1/s^2.
+                    model_type: 1 # default 0, model type for frustum. 0=depth camera, 1=3d lidar like VLP16 or similar
 
             # denoising costmap by removing outlier points in groups less big than the minimum
             denoise_layer:
@@ -285,8 +299,8 @@ global_costmap:
             footprint: "[ [0.45, 0.35], [0.45, -0.35], [-0.45, -0.35], [-0.45, 0.35] ]"
             footprint_padding: 0.02
             resolution: 0.05
-            width: 16
-            height: 16
+            width: 20
+            height: 20
             track_unknown_space: true
             lethal_cost_threshold: 100
 
@@ -342,7 +356,7 @@ planner_server:
             analytic_expansion_ratio: 3.5 # The ratio to attempt analytic expansions during search for final approach.
             analytic_expansion_max_length: 3.0 # For Hybrid/Lattice nodes: The maximum length of the analytic expansion to be considered valid to prevent unsafe shortcutting
             minimum_turning_radius: 0.2 # minimum turning radius in m of path / vehicle
-            reverse_penalty: 2.0 # Penalty to apply if motion is reversing, must be => 1
+            reverse_penalty: 1.2 # Penalty to apply if motion is reversing, must be => 1
             change_penalty: 0.0 # Penalty to apply if motion is changing directions (L to R), must be >= 0
             non_straight_penalty: 1.2 # Penalty to apply if motion is non-straight, must be => 1
             cost_penalty: 2.0 # Penalty to apply to higher cost areas when adding into the obstacle map dynamic programming distance expansion heuristic. This drives the robot more towards the center of passages. A value between 1.3 - 3.5 is reasonable.

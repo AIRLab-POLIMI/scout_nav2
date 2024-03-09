@@ -85,7 +85,7 @@ def launch_setup(context, *args, **kwargs):
             # performing localization and navigation
             if (LaunchConfiguration("localization").perform(context) == "slam_toolbox"):
                 # SLAM toolbox localization
-                params_file_name = "scout_slam_loc_stvl.yaml"
+                params_file_name = "scout_slam_localization.yaml"
             else:
                 # AMCL localization
                 params_file_name = "scout_amcl.yaml"
